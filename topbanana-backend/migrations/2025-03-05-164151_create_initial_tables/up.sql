@@ -1,6 +1,6 @@
 
 CREATE TABLE developers (
-       id INTEGER PRIMARY KEY,
+       id SERIAL PRIMARY KEY,
        name VARCHAR(100) NOT NULL,
        email VARCHAR(100) NOT NULL,
        url VARCHAR(100),
@@ -10,7 +10,7 @@ CREATE TABLE developers (
 );
 
 CREATE TABLE games (
-       id INTEGER PRIMARY KEY,
+       id serial PRIMARY KEY,
        developer_id INTEGER NOT NULL REFERENCES developers (id),
        game_uuid UUID NOT NULL UNIQUE,
        game_secret_key VARCHAR(100) NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE games (
 );
 
 CREATE TABLE highscore_tables (
-       id INTEGER PRIMARY KEY,
+       id serial PRIMARY KEY,
        game_id INTEGER NOT NULL REFERENCES games (id),
        name VARCHAR(100) NOT NULL,
        table_uuid UUID NOT NULL UNIQUE,
@@ -27,7 +27,7 @@ CREATE TABLE highscore_tables (
 );
 
 CREATE TABLE highscore_table_entries (
-       id INTEGER PRIMARY KEY,
+       id serial PRIMARY KEY,
        highscore_table_id INTEGER NOT NULL REFERENCES highscore_tables (id),
        player_name VARCHAR(100) NOT NULL,
        player_score FLOAT NOT NULL,

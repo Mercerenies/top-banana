@@ -1,0 +1,15 @@
+[package]
+name = "topbanana"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.97"
+chrono = "0.4.40"
+diesel = { version = "2.2.8", features = ["postgres", "uuid", "chrono"] }
+diesel-async = { version = "0.5.2", features = ["postgres"] }
+fern = "0.7.1"
+rocket = { version = "0.5.1", features = ["json"] }
+serde = { version = "1.0.218", features = ["derive"] }
+thiserror = "2.0.12"
+uuid = { version = "1.15.1", features = ["v4", "serde"] }

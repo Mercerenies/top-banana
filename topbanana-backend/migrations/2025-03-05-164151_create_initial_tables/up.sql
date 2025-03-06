@@ -1,6 +1,7 @@
 
 CREATE TABLE developers (
        id SERIAL PRIMARY KEY,
+       developer_uuid UUID NOT NULL UNIQUE,
        name VARCHAR(100) NOT NULL,
        email VARCHAR(100) NOT NULL,
        url VARCHAR(100),

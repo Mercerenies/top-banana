@@ -1,7 +1,5 @@
 
-//! Authorization primitives for TopBanana Rocket API.
-
-use super::error::ApiError;
+use crate::server::error::ApiError;
 
 use rocket::request::{self, Request, FromRequest};
 
@@ -19,7 +17,7 @@ impl<'r> FromRequest<'r> for XApiKey<'r> {
     match req.headers()
       .get_one(X_API_KEY_HEADER)
       .map(XApiKey)
-      .ok_or_else(|| ApiError::bad_request("Missing X-Api-Key header")) { ///// Communicate this to user in json
+      .ok_or_else(|| ApiError::bad_request("Missing X-Api-Key header")) {
         Err(err) => request::Outcome::Error((err.status(), err)),
         Ok(ok) => request::Outcome::Success(ok),
       }

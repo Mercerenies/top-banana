@@ -1,16 +1,30 @@
 
-use rocket::Request;
+use rocket::{Request, Catcher, catch, catchers};
 use rocket::http::Status;
 use rocket::response::{self, Responder};
 use rocket::serde::json::Json;
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
 
+use std::fmt::Display;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ApiStatus {
   Success,
   Error,
+}
+
+#[derive(Debug, Clone, Responder)]
+pub struct ApiSuccessResponse<T> {
+  json: Json<ApiSuccessResponseBody<T>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ApiSuccessResponseBody<T> {
+  status: ApiStatus,
+  #[serde(flatten)]
+  body: T,
 }
 
 /// Rocket responder which responds using a JSON-like object
@@ -28,6 +42,18 @@ struct ErrorPayload {
   reason: String,
 }
 
+impl<T: Serialize> ApiSuccessResponse<T> {
+  pub fn new(body: T) -> ApiSuccessResponse<T> {
+    let body = ApiSuccessResponseBody {
+      status: ApiStatus::Success,
+      body
+    };
+    ApiSuccessResponse {
+      json: Json(body),
+    }
+  }
+}
+
 impl ApiError {
   pub fn bad_request(message: &str) -> ApiError {
     ApiError {
@@ -43,7 +69,13 @@ impl ApiError {
     }
   }
 
-  pub fn internal_server_error(message: &str) -> ApiError {
+  /// A 500 Internal Server Error.
+  ///
+  /// This method takes [`Display`] rather than `str`, as we
+  /// frequently pass error-like things to it. We can't take
+  /// [`Error`](std::error::Error) since `anyhow` doesn't implement
+  /// that.
+  pub fn internal_server_error(message: impl Display) -> ApiError {
     ApiError {
       status: Status::InternalServerError,
       message: message.to_string(),
@@ -73,4 +105,13 @@ impl<'r> Responder<'r, 'static> for ApiError {
     let payload = ErrorPayload::new(self.message);
     (self.status, Json(payload)).respond_to(req)
   }
+}
+
+pub fn catchers() -> Vec<Catcher> {
+  catchers![bad_request_catcher]
+}
+
+#[catch(400)]
+pub fn bad_request_catcher(_: &Request) -> ApiError {
+  ApiError::bad_request("Bad Request")
 }

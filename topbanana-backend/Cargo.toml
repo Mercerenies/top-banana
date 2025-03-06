@@ -5,10 +5,12 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.97"
+bitflags = { version = "2.9.0", features = ["serde"] }
 chrono = "0.4.40"
 diesel = { version = "2.1.6", features = ["postgres", "uuid", "chrono"] }
 diesel-async = { version = "0.4.1", features = ["postgres"] }
 fern = "0.7.1"
+jsonwebtoken = "9.3.1"
 rocket = { version = "0.5.1", features = ["json"] }
 rocket_db_pools = { version = "0.2.0", features = ["diesel_postgres"] }
 serde = { version = "1.0.218", features = ["derive"] }

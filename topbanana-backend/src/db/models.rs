@@ -7,6 +7,7 @@ use uuid::Uuid;
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Developer {
   pub id: i32,
+  pub developer_uuid: Uuid,
   pub name: String,
   pub email: String,
   pub url: Option<String>,
@@ -18,6 +19,7 @@ pub struct Developer {
 #[diesel(table_name = super::schema::developers)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewDeveloper {
+  pub developer_uuid: Uuid,
   pub name: String,
   pub email: String,
   pub url: Option<String>,

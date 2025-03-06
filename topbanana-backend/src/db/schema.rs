@@ -3,6 +3,7 @@
 diesel::table! {
     developers (id) {
         id -> Int4,
+        developer_uuid -> Uuid,
         #[max_length = 100]
         name -> Varchar,
         #[max_length = 100]

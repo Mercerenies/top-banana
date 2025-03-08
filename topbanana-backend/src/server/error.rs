@@ -114,11 +114,40 @@ impl<'r> Responder<'r, 'static> for ApiError {
   }
 }
 
+/// Extension trait adding [`ServerError`] converters to `Result<T, E>`.
+pub trait ApiErrorExt {
+  type Output;
+
+  fn map_500_json(self) -> Result<Self::Output, ApiError>;
+}
+
+impl<T, E: Display + 'static> ApiErrorExt for Result<T, E> {
+  type Output = T;
+
+  fn map_500_json(self) -> Result<Self::Output, ApiError> {
+    self.map_err(|err| ApiError::internal_server_error(&err))
+  }
+}
+
 pub fn catchers() -> Vec<Catcher> {
-  catchers![bad_request_catcher]
+  catchers![
+    bad_request_catcher,
+    unauthorized_catcher,
+    forbidden_catcher,
+  ]
 }
 
 #[catch(400)]
 pub fn bad_request_catcher(_: &Request) -> ApiError {
   ApiError::bad_request("Bad Request")
+}
+
+#[catch(401)]
+pub fn unauthorized_catcher(_: &Request) -> ApiError {
+  ApiError::unauthorized("Unauthorized")
+}
+
+#[catch(403)]
+pub fn forbidden_catcher(_: &Request) -> ApiError {
+  ApiError::forbidden("Forbidden")
 }

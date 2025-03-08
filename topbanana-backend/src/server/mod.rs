@@ -1,4 +1,5 @@
 
+pub mod admin;
 pub mod auth;
 pub mod db;
 pub mod error;
@@ -22,6 +23,7 @@ pub async fn run_server() -> Result<Rocket<Ignite>, rocket::Error> {
 pub fn build_rocket() -> Rocket<Build> {
   rocket::build()
     .mount("/api", api_routes())
+    .mount("/api/admin", admin::admin_routes())
     .attach(db::Db::init())
     .register("/api", error::catchers())
 }

@@ -52,14 +52,14 @@ pub fn create_token(user_uuid: &Uuid, user_flags: UserFlags) -> Result<String, J
   Ok(token)
 }
 
-pub fn verify_token(token_str: &str) -> Result<Uuid, JwtError> {
+pub fn verify_token(token_str: &str) -> Result<JwtClaim, JwtError> {
   let decoding_key = DecodingKey::from_base64_secret(&get_secret_key()?)?;
   let claims = decode::<JwtClaim>(
     token_str,
     &decoding_key,
     &Validation::default(),
   )?;
-  Ok(claims.claims.sub)
+  Ok(claims.claims)
 }
 
 fn get_secret_key() -> Result<String, JwtError> {

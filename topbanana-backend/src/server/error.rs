@@ -62,6 +62,13 @@ impl ApiError {
     }
   }
 
+  pub fn unauthorized(message: &str) -> ApiError {
+    ApiError {
+      status: Status::Unauthorized,
+      message: message.to_string(),
+    }
+  }
+
   pub fn forbidden(message: &str) -> ApiError {
     ApiError {
       status: Status::Forbidden,

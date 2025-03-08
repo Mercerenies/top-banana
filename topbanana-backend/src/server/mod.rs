@@ -7,7 +7,7 @@ use error::{ApiError, ApiSuccessResponse};
 use auth::{create_jwt_for_api_key, AuthError};
 
 use rocket::{Route, Rocket, Build, Ignite, routes, post};
-use rocket_db_pools::Connection;
+use rocket_db_pools::{Database, Connection};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -22,6 +22,7 @@ pub async fn run_server() -> Result<Rocket<Ignite>, rocket::Error> {
 pub fn build_rocket() -> Rocket<Build> {
   rocket::build()
     .mount("/api", api_routes())
+    .attach(db::Db::init())
     .register("/api", error::catchers())
 }
 

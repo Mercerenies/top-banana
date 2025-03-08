@@ -5,6 +5,7 @@ use rocket::response::{self, Responder};
 use rocket::serde::json::Json;
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
+use diesel::result::{DatabaseErrorKind, Error as DieselError};
 
 use std::fmt::Display;
 
@@ -76,6 +77,20 @@ impl ApiError {
     }
   }
 
+  pub fn not_found(message: &str) -> ApiError {
+    ApiError {
+      status: Status::NotFound,
+      message: message.to_string(),
+    }
+  }
+
+  pub fn conflict(message: &str) -> ApiError {
+    ApiError {
+      status: Status::Conflict,
+      message: message.to_string(),
+    }
+  }
+
   /// A 500 Internal Server Error.
   ///
   /// This method takes [`Display`] rather than `str`, as we
@@ -96,6 +111,18 @@ impl ApiError {
   pub fn message(&self) -> &str {
     &self.message
   }
+
+  /// As `ApiError::from` but traets [`DieselError::NotFound`] as an
+  /// HTTP 400 rather than HTTP 404. This is suitable to use on
+  /// creation requests, where the primary task is not the lookup and
+  /// hence failure to lookup is a Bad Request.
+  pub fn from_on_create(err: DieselError) -> ApiError {
+    if let DieselError::NotFound = err {
+      ApiError::bad_request("Not Found")
+    } else {
+      ApiError::from(err)
+    }
+  }
 }
 
 impl ErrorPayload {
@@ -111,6 +138,25 @@ impl<'r> Responder<'r, 'static> for ApiError {
   fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
     let payload = ErrorPayload::new(self.message);
     (self.status, Json(payload)).respond_to(req)
+  }
+}
+
+impl From<DieselError> for ApiError {
+  fn from(err: DieselError) -> ApiError {
+    if let DieselError::NotFound = err {
+      ApiError::not_found("Not Found")
+    } else if let DieselError::DatabaseError(kind, info) = err {
+      match kind {
+        DatabaseErrorKind::UniqueViolation =>
+          ApiError::conflict(&format!("Uniqueness error: {}", info.message())),
+        DatabaseErrorKind::ForeignKeyViolation =>
+          ApiError::bad_request(&format!("Foreign key violation: {}", info.message())),
+        _ =>
+          ApiError::internal_server_error("An unexpected database error occurred"),
+      }
+    } else {
+      ApiError::internal_server_error("An unexpected database error occurred")
+    }
   }
 }
 

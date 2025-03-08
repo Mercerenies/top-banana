@@ -4,7 +4,7 @@ use crate::db::models::NewDeveloper;
 use crate::util::generate_key;
 use super::db::Db;
 use super::auth::AdminUser;
-use super::error::{ApiSuccessResponse, ApiError, ApiErrorExt};
+use super::error::{ApiSuccessResponse, ApiError};
 
 use rocket::{Route, routes, post};
 use rocket::serde::json::Json;
@@ -52,7 +52,7 @@ async fn create_developer(
     .values(&new_developer)
     .execute(&mut db)
     .await
-    .map_500_json()?;
+    .map_err(ApiError::from_on_create)?;
   let resp = NewDeveloperResponse {
     developer_uuid: new_developer.developer_uuid,
     api_key: new_developer.api_key.unwrap(),

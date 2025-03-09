@@ -12,6 +12,8 @@ use uuid::Uuid;
 ///
 /// * A [`models::Developer`] owns himself.
 ///
+/// * A [`Uuid`] is owned by the developer it refers to.
+///
 /// * Any type `T` can be tagged with a developer [`Uuid`], so that
 /// the tuple `(T, Uuid)` is considered owned.
 pub trait DeveloperOwned {
@@ -45,6 +47,12 @@ pub trait DeveloperOwnedExt: Sized {
 impl DeveloperOwned for models::Developer {
   fn get_developer_uuid(&self) -> &Uuid {
     &self.developer_uuid
+  }
+}
+
+impl DeveloperOwned for Uuid {
+  fn get_developer_uuid(&self) -> &Uuid {
+    self
   }
 }
 
@@ -86,6 +94,22 @@ pub struct GameResponse {
   pub name: String,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub game_secret_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewHighscoreTableDao {
+  pub game_uuid: Uuid,
+  pub name: String,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub maximum_scores_retained: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HighscoreTableResponse {
+  pub game_uuid: Uuid,
+  pub table_uuid: Uuid,
+  pub name: String,
+  pub maximum_scores_retained: Option<i32>,
 }
 
 impl DeveloperResponse {

@@ -7,7 +7,7 @@ pub mod error;
 
 use error::{ApiError, ApiSuccessResponse};
 use auth::{create_jwt_for_api_key, DeveloperUser, AuthError};
-use data_access::{DeveloperOwnedExt, DeveloperResponse, NewGameDao, GameResponse};
+use data_access::{DeveloperOwnedExt, DeveloperResponse, NewGameDao, GameResponse, NewHighscoreTableDao, HighscoreTableResponse};
 use crate::db::{schema, models};
 use crate::util::{ParamFromStr, generate_key};
 
@@ -46,6 +46,8 @@ pub fn api_routes() -> Vec<Route> {
     get_current_developer,
     create_game,
     get_game,
+    create_highscore_table,
+    get_highscore_table,
   ]
 }
 
@@ -132,4 +134,56 @@ async fn get_game(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut 
     game_secret_key: None,
   };
   Ok(ApiSuccessResponse::new(game_response))
+}
+
+#[post("/highscore-table", data = "<params>")]
+async fn create_highscore_table(requesting_user: DeveloperUser, params: Json<NewHighscoreTableDao>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<HighscoreTableResponse>, ApiError> {
+  let params = params.0;
+  let (game_id, _) = schema::games::table
+    .filter(schema::games::game_uuid.eq(&params.game_uuid))
+    .inner_join(schema::developers::table)
+    .select((schema::games::id, schema::developers::developer_uuid))
+    .first::<(i32, Uuid)>(&mut db)
+    .await
+    .optional()?
+    .check_permission(&requesting_user)?;
+
+  let new_highscore_table = models::NewHighscoreTable {
+    game_id,
+    name: params.name,
+    table_uuid: Uuid::new_v4(),
+    maximum_scores_retained: params.maximum_scores_retained,
+  };
+  diesel::insert_into(schema::highscore_tables::table)
+    .values(&new_highscore_table)
+    .execute(&mut db)
+    .await
+    .map_err(ApiError::from_on_create)?;
+
+  let response = HighscoreTableResponse {
+    game_uuid: params.game_uuid,
+    table_uuid: new_highscore_table.table_uuid,
+    name: new_highscore_table.name,
+    maximum_scores_retained: new_highscore_table.maximum_scores_retained,
+  };
+  Ok(ApiSuccessResponse::new(response))
+}
+
+#[get("/highscore-table/<uuid>")]
+async fn get_highscore_table(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<HighscoreTableResponse>, ApiError> {
+  let ((highscore_table, game_uuid), _developer_uuid) = schema::highscore_tables::table
+    .filter(schema::highscore_tables::table_uuid.eq(&*uuid))
+    .inner_join(schema::games::table.inner_join(schema::developers::table))
+    .select(((schema::highscore_tables::all_columns, schema::games::game_uuid), schema::developers::developer_uuid))
+    .first::<((models::HighscoreTable, Uuid), Uuid)>(&mut db)
+    .await
+    .optional()?
+    .check_permission(&requesting_user)?;
+  let response = HighscoreTableResponse {
+    game_uuid,
+    table_uuid: highscore_table.table_uuid,
+    name: highscore_table.name,
+    maximum_scores_retained: highscore_table.maximum_scores_retained,
+  };
+  Ok(ApiSuccessResponse::new(response))
 }

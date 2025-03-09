@@ -5,7 +5,7 @@ use crate::util::generate_key;
 use super::data_access::DeveloperResponse;
 use super::db::Db;
 use super::auth::AdminUser;
-use super::error::{ApiSuccessResponse, ApiError};
+use super::error::{ApiSuccessResponse, ApiSuccessResponseBody, ApiError};
 
 use rocket::post;
 use rocket::serde::json::Json;
@@ -13,8 +13,9 @@ use rocket_db_pools::Connection;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use diesel_async::RunQueryDsl;
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NewDeveloperParams {
   pub name: String,
   pub email: String,
@@ -22,6 +23,19 @@ pub struct NewDeveloperParams {
   pub url: Option<String>,
 }
 
+/// Creates a new developer user.
+///
+/// This endpoint is only available to administrators. The returned
+/// API key cannot be accessed from the API after creation.
+#[utoipa::path(
+  post,
+  path="/api/developer",
+  tag="developer",
+  responses(
+    (status = 200, description = "Developer created successfully", body = ApiSuccessResponseBody<DeveloperResponse>),
+    (status = 409, description = "Developer with provided arguments already exists"),
+  )
+)]
 #[post("/developer", data = "<params>")]
 pub async fn create_developer(
   _admin_user: AdminUser,

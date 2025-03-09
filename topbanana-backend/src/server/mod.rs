@@ -9,7 +9,7 @@ pub mod openapi;
 use error::{ApiError, ApiSuccessResponse, ApiSuccessResponseBody};
 use auth::{create_jwt_for_api_key, DeveloperUser, AuthError};
 use data_access::{DeveloperOwnedExt, DeveloperResponse, NewGameDao, GameResponse, NewHighscoreTableDao, HighscoreTableResponse};
-use openapi::SecurityAddon;
+use openapi::{SecurityAddon, OpenApiUuid};
 use crate::db::{schema, models};
 use crate::util::{ParamFromStr, generate_key};
 
@@ -25,7 +25,12 @@ use utoipa_swagger_ui::SwaggerUi;
 
 #[derive(OpenApi)]
 #[openapi(
-  paths(authorize),
+  paths(
+    authorize,
+    admin::create_developer, get_developer, get_current_developer,
+    create_game, get_game,
+    create_highscore_table, get_highscore_table, get_highscore_table_scores,
+  ),
   modifiers(&SecurityAddon),
   components(schemas(ApiSuccessResponseBody<AuthResponse>)),
 )]
@@ -37,16 +42,25 @@ pub struct AuthResponse {
   pub token: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ScoresResponse {
+  /// All highscores in the table, sorted in descending order by score
+  /// value. Tied scores are sorted by creation timestamp, with
+  /// earlier scores ranking higher.
   pub scores: Vec<ScoresResponseEntry>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ScoresResponseEntry {
+  /// The name of the player who submitted the score.
   pub player_name: String,
+  /// The player's score, as a float.
   pub player_score: f64,
+  /// Optional metadata supplied with the player's submission. The
+  /// meaning of this field is game-specific.
   pub player_score_metadata: Option<String>,
+  /// When the score was submitted.
+  #[schema(value_type = String, example = "2025-02-01 05:33:10")]
   #[serde(serialize_with = "serialize_datetime")]
   pub creation_timestamp: chrono::NaiveDateTime,
 }
@@ -101,6 +115,7 @@ pub fn api_routes() -> Vec<Route> {
 #[utoipa::path(
   post,
   path="/api/authorize",
+  tag="authorization",
   security(("X-Api-Key" = [])),
   responses(
     (status = 200, description = "A JWT token", body = ApiSuccessResponseBody<AuthResponse>),
@@ -118,6 +133,22 @@ async fn authorize(api_key: auth::XApiKey<'_>, mut db: Connection<db::Db>) -> Re
   Ok(ApiSuccessResponse::new(AuthResponse { token: jwt_token }))
 }
 
+/// Gets information about the specified user.
+///
+/// Non-admin users can only query their own information.
+#[utoipa::path(
+  get,
+  path="/api/developer/{uuid}",
+  tag="developer",
+  params(
+    ("uuid" = OpenApiUuid, Path, description = "Developer UUID"),
+  ),
+  responses(
+    (status = 200, description = "Developer information", body = ApiSuccessResponseBody<DeveloperResponse>),
+    (status = 403, description = "Forbidden"),
+    (status = 404, description = "Developer not found"),
+  )
+)]
 #[get("/developer/<uuid>")]
 async fn get_developer(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
   let matching_user = schema::developers::table
@@ -129,6 +160,15 @@ async fn get_developer(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>,
   Ok(ApiSuccessResponse::new(DeveloperResponse::from(matching_user).without_api_key()))
 }
 
+/// Gets information about the current user.
+#[utoipa::path(
+  get,
+  path="/api/developer/me",
+  tag="developer",
+  responses(
+    (status = 200, description = "Developer information", body = ApiSuccessResponseBody<DeveloperResponse>),
+  )
+)]
 #[get("/developer/me")]
 async fn get_current_developer(requesting_user: DeveloperUser, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
   let matching_user = schema::developers::table
@@ -138,6 +178,19 @@ async fn get_current_developer(requesting_user: DeveloperUser, mut db: Connectio
   Ok(ApiSuccessResponse::new(DeveloperResponse::from(matching_user).without_api_key()))
 }
 
+/// Creates a new video game.
+///
+/// The game's returned secret key cannot be accessed after this
+/// endpoint returns.
+#[utoipa::path(
+  post,
+  path="/api/game",
+  tag="game",
+  responses(
+    (status = 200, description = "Game created successfully", body = ApiSuccessResponseBody<GameResponse>),
+    (status = 403, description = "Not allowed to create a game with these parameters"),
+  ),
+)]
 #[post("/game", data = "<params>")]
 async fn create_game(requesting_user: DeveloperUser, params: Json<NewGameDao>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<GameResponse>, ApiError> {
   let params = params.0;
@@ -172,6 +225,23 @@ async fn create_game(requesting_user: DeveloperUser, params: Json<NewGameDao>, m
   Ok(ApiSuccessResponse::new(game_response))
 }
 
+/// Gets details about the video game with the given UUID.
+///
+/// Admins can query any game, while non-admins can only query their
+/// own games.
+#[utoipa::path(
+  get,
+  path="/api/game/{uuid}",
+  tag="game",
+  params(
+    ("uuid" = OpenApiUuid, Path, description = "Game UUID"),
+  ),
+  responses(
+    (status = 200, description = "Game details", body = ApiSuccessResponseBody<GameResponse>),
+    (status = 403, description = "Forbidden"),
+    (status = 404, description = "Game not found"),
+  ),
+)]
 #[get("/game/<uuid>")]
 async fn get_game(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<GameResponse>, ApiError> {
   let (game, developer_uuid) = schema::games::table
@@ -192,6 +262,18 @@ async fn get_game(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut 
   Ok(ApiSuccessResponse::new(game_response))
 }
 
+/// Creates a new highscore table.
+///
+/// Requesting user must either own the game or be an admin.
+#[utoipa::path(
+  post,
+  path="/api/highscore-table",
+  tag="highscore-table",
+  responses(
+    (status = 200, description = "Highscore table created successfully", body = ApiSuccessResponseBody<HighscoreTableResponse>),
+    (status = 403, description = "Forbidden"),
+  ),
+)]
 #[post("/highscore-table", data = "<params>")]
 async fn create_highscore_table(requesting_user: DeveloperUser, params: Json<NewHighscoreTableDao>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<HighscoreTableResponse>, ApiError> {
   let params = params.0;
@@ -225,6 +307,22 @@ async fn create_highscore_table(requesting_user: DeveloperUser, params: Json<New
   Ok(ApiSuccessResponse::new(response))
 }
 
+/// Queries the details of a highscore table.
+///
+/// Requesting user must be an admin or the owner of the game.
+#[utoipa::path(
+  get,
+  path="/api/highscore-table/{uuid}",
+  tag="highscore-table",
+  params(
+    ("uuid" = OpenApiUuid, Path, description = "Highscore table UUID"),
+  ),
+  responses(
+    (status = 200, description = "Highscore table details", body = ApiSuccessResponseBody<HighscoreTableResponse>),
+    (status = 403, description = "Forbidden"),
+    (status = 404, description = "Highscore table not found"),
+  ),
+)]
 #[get("/highscore-table/<uuid>")]
 async fn get_highscore_table(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<HighscoreTableResponse>, ApiError> {
   let ((highscore_table, game_uuid), _developer_uuid) = schema::highscore_tables::table
@@ -244,6 +342,24 @@ async fn get_highscore_table(requesting_user: DeveloperUser, uuid: ParamFromStr<
   Ok(ApiSuccessResponse::new(response))
 }
 
+/// Returns a list of all highscores on the given table.
+///
+/// Returned table is sorted from highest to lowest score.
+///
+/// Requesting user must be an admin or the owner of the game.
+#[utoipa::path(
+  get,
+  path="/api/highscore-table/{uuid}/scores",
+  tag="highscore-table",
+  params(
+    ("uuid" = OpenApiUuid, Path, description = "Highscore table UUID"),
+  ),
+  responses(
+    (status = 200, description = "Highscore table details", body = ApiSuccessResponseBody<ScoresResponse>),
+    (status = 403, description = "Forbidden"),
+    (status = 404, description = "Highscore table not found"),
+  ),
+)]
 #[get("/highscore-table/<uuid>/scores")]
 async fn get_highscore_table_scores(
   requesting_user: DeveloperUser,
@@ -260,7 +376,7 @@ async fn get_highscore_table_scores(
     .check_permission(&requesting_user)?;
   let entries = schema::highscore_table_entries::table
     .filter(schema::highscore_table_entries::highscore_table_id.eq(highscore_table_id))
-    .order(schema::highscore_table_entries::player_score.desc())
+    .order((schema::highscore_table_entries::player_score.desc(), schema::highscore_table_entries::creation_timestamp.asc()))
     .load::<models::HighscoreTableEntry>(&mut db)
     .await?;
   let entries = entries.into_iter().map(ScoresResponseEntry::from).collect();

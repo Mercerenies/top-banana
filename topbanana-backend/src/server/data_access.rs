@@ -2,9 +2,11 @@
 use crate::db::models;
 use super::auth::DeveloperUser;
 use super::error::ApiError;
+use super::openapi::OpenApiUuid;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use utoipa::ToSchema;
 
 /// Trait for objects which have a developer that owns them.
 ///
@@ -70,45 +72,68 @@ impl<T: DeveloperOwned + Sized> DeveloperOwnedExt for Option<T> {
   }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DeveloperResponse {
+  #[schema(value_type = OpenApiUuid)]
   pub developer_uuid: Uuid,
   pub name: String,
   pub email: String,
   pub url: Option<String>,
+  #[schema(examples("false"))]
   pub is_admin: bool,
+  /// The API key is only supplied upon initial user creation and
+  /// cannot be recovered after the fact.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub api_key: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NewGameDao {
+  /// Non-admin users can only create games belonging to themselves.
+  /// If you are not an admin, then `developer_uuid` must be your own
+  /// UUID.
+  #[schema(value_type = OpenApiUuid)]
   pub developer_uuid: Uuid,
   pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct GameResponse {
+  /// The developer who owns this game.
+  #[schema(value_type = OpenApiUuid)]
   pub developer_uuid: Uuid,
+  #[schema(value_type = OpenApiUuid)]
   pub game_uuid: Uuid,
   pub name: String,
+  /// The game's secret key is only supplied upon initial game
+  /// creation and cannot be recovered after the fact.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub game_secret_key: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NewHighscoreTableDao {
+  /// The game that this table belongs to.
+  #[schema(value_type = OpenApiUuid)]
   pub game_uuid: Uuid,
   pub name: String,
+  /// Maximum number of scores retained by this highscore table. Omit
+  /// to keep all scores. Administrators may choose to limit the
+  /// maximum value of this field.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub maximum_scores_retained: Option<i32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct HighscoreTableResponse {
+  /// The game that this table belongs to.
+  #[schema(value_type = OpenApiUuid)]
   pub game_uuid: Uuid,
+  #[schema(value_type = OpenApiUuid)]
   pub table_uuid: Uuid,
   pub name: String,
+  /// The maximum number of scores retained by this highscore table.
+  /// If this field is `null`, then there is no limit.
   pub maximum_scores_retained: Option<i32>,
 }
 

@@ -31,6 +31,12 @@ use utoipa_swagger_ui::SwaggerUi;
     create_game, get_game,
     create_highscore_table, get_highscore_table, get_highscore_table_scores,
   ),
+  tags(
+    (name = "authorization", description = "Authorization API for developers"),
+    (name = "developer", description = "Query information about individual developers"),
+    (name = "game", description = "Video game access and creation"),
+    (name = "highscore-table", description = "Highscore table access and creation"),
+  ),
   modifiers(&SecurityAddon),
   components(schemas(ApiSuccessResponseBody<AuthResponse>)),
 )]

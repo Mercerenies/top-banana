@@ -80,6 +80,10 @@ impl DeveloperUser {
   pub fn user_uuid(&self) -> &Uuid {
     &self.claim.sub
   }
+
+  pub fn is_admin(&self) -> bool {
+    self.claim.user_flags.contains(UserFlags::ADMIN)
+  }
 }
 
 impl AdminUser {

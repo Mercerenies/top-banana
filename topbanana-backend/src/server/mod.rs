@@ -8,11 +8,16 @@ pub mod error;
 use error::{ApiError, ApiSuccessResponse};
 use auth::{create_jwt_for_api_key, DeveloperUser, AuthError};
 use data_access::DeveloperResponse;
+use crate::db::{schema, models};
 
 use rocket::{Route, Rocket, Build, Ignite, routes, post, get};
 use rocket_db_pools::{Database, Connection};
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use uuid::Uuid;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthResponse {
@@ -37,6 +42,7 @@ pub fn build_rocket() -> Rocket<Build> {
 pub fn api_routes() -> Vec<Route> {
   routes![
     authorize,
+    get_developer,
   ]
 }
 
@@ -52,6 +58,30 @@ async fn authorize(api_key: auth::XApiKey<'_>, mut db: Connection<db::Db>) -> Re
 }
 
 #[get("/developer/<uuid>")]
-async fn get_developer(user: DeveloperUser, uuid: String) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
-  todo!()
+async fn get_developer(requesting_user: DeveloperUser, uuid: &str, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
+  let uuid = Uuid::from_str(uuid).map_err(|_| ApiError::bad_request())?;
+  let matching_user = schema::developers::table
+    .filter(schema::developers::developer_uuid.eq(&uuid))
+    .get_result::<models::Developer>(&mut db)
+    .await
+    .optional()?;
+  let matching_user = check_developer_perms(&requesting_user, matching_user)?;
+  Ok(ApiSuccessResponse::new(DeveloperResponse::from(matching_user).without_api_key()))
+}
+
+/// Returns the matching developer, if they exist and the requesting
+/// user has permission to see them.
+fn check_developer_perms(requesting_user: &DeveloperUser, matching_user: Option<models::Developer>) -> Result<models::Developer, ApiError> {
+  if requesting_user.is_admin() {
+    // Admin has full permission to access everything.
+    return matching_user.ok_or(ApiError::not_found());
+  }
+
+  if let Some(matching_user) = matching_user {
+    // Non-admin developer can only access themself.
+    if requesting_user.user_uuid() == &matching_user.developer_uuid {
+      return Ok(matching_user);
+    }
+  }
+  Err(ApiError::forbidden())
 }

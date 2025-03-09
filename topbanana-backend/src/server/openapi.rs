@@ -1,7 +1,28 @@
 
-use utoipa::{Modify, ToSchema, openapi};
+use super::{admin, api};
+
+use utoipa::{Modify, OpenApi, ToSchema, openapi};
 use utoipa::openapi::security::{SecurityScheme, ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityRequirement};
 use uuid::Uuid;
+
+#[derive(OpenApi)]
+#[openapi(
+  paths(
+    api::authorize,
+    admin::create_developer, api::get_developer, api::get_current_developer,
+    api::create_game, api::get_game,
+    api::create_highscore_table, api::get_highscore_table, api::get_highscore_table_scores,
+  ),
+  tags(
+    (name = "authorization", description = "Authorization API for developers"),
+    (name = "developer", description = "Query information about individual developers"),
+    (name = "game", description = "Video game access and creation"),
+    (name = "highscore-table", description = "Highscore table access and creation"),
+  ),
+  modifiers(&SecurityAddon),
+  components(),
+)]
+pub struct ApiDoc;
 
 pub struct SecurityAddon;
 

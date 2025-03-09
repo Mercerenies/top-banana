@@ -1,15 +1,18 @@
 
 pub mod admin;
 pub mod auth;
+pub mod data_access;
 pub mod db;
 pub mod error;
 
 use error::{ApiError, ApiSuccessResponse};
-use auth::{create_jwt_for_api_key, AuthError};
+use auth::{create_jwt_for_api_key, DeveloperUser, AuthError};
+use data_access::DeveloperResponse;
 
-use rocket::{Route, Rocket, Build, Ignite, routes, post};
+use rocket::{Route, Rocket, Build, Ignite, routes, post, get};
 use rocket_db_pools::{Database, Connection};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthResponse {
@@ -46,4 +49,9 @@ async fn authorize(api_key: auth::XApiKey<'_>, mut db: Connection<db::Db>) -> Re
     }
   })?;
   Ok(ApiSuccessResponse::new(AuthResponse { token: jwt_token }))
+}
+
+#[get("/developer/<uuid>")]
+async fn get_developer(user: DeveloperUser, uuid: String) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
+  todo!()
 }

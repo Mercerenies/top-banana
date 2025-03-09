@@ -17,7 +17,7 @@ impl<'r> FromRequest<'r> for XApiKey<'r> {
     match req.headers()
       .get_one(X_API_KEY_HEADER)
       .map(XApiKey)
-      .ok_or_else(|| ApiError::bad_request("Missing X-Api-Key header")) {
+      .ok_or_else(|| ApiError::bad_request().with_message("Missing X-Api-Key header")) {
         Err(err) => request::Outcome::Error((err.status(), err)),
         Ok(ok) => request::Outcome::Success(ok),
       }

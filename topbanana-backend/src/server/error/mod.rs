@@ -1,4 +1,6 @@
 
+pub mod messages;
+
 use rocket::{Request, Catcher, catch, catchers};
 use rocket::http::Status;
 use rocket::response::{self, Responder};
@@ -56,34 +58,31 @@ impl<T: Serialize> ApiSuccessResponse<T> {
 }
 
 impl ApiError {
-  pub const NOT_FOUND_MESSAGE: &'static str = "Not Found";
-  pub const UNKNOWN_DB_ERROR_MESSAGE: &'static str = "An unexpected database error occurred";
-
-  pub fn bad_request(message: &str) -> ApiError {
+  pub fn bad_request() -> ApiError {
     ApiError {
       status: Status::BadRequest,
-      message: message.to_string(),
+      message: messages::BAD_REQUEST.to_string(),
     }
   }
 
-  pub fn unauthorized(message: &str) -> ApiError {
+  pub fn unauthorized() -> ApiError {
     ApiError {
       status: Status::Unauthorized,
-      message: message.to_string(),
+      message: messages::UNAUTHORIZED.to_string(),
     }
   }
 
-  pub fn forbidden(message: &str) -> ApiError {
+  pub fn forbidden() -> ApiError {
     ApiError {
       status: Status::Forbidden,
-      message: message.to_string(),
+      message: messages::FORBIDDEN.to_string(),
     }
   }
 
-  pub fn not_found(message: &str) -> ApiError {
+  pub fn not_found() -> ApiError {
     ApiError {
       status: Status::NotFound,
-      message: message.to_string(),
+      message: messages::NOT_FOUND.to_string(),
     }
   }
 
@@ -115,13 +114,18 @@ impl ApiError {
     &self.message
   }
 
+  pub fn with_message(mut self, message: impl Into<String>) -> Self {
+    self.message = message.into();
+    self
+  }
+
   /// As `ApiError::from` but traets [`DieselError::NotFound`] as an
   /// HTTP 400 rather than HTTP 404. This is suitable to use on
   /// creation requests, where the primary task is not the lookup and
   /// hence failure to lookup is a Bad Request.
   pub fn from_on_create(err: DieselError) -> ApiError {
     if let DieselError::NotFound = err {
-      ApiError::bad_request(Self::NOT_FOUND_MESSAGE)
+      ApiError::bad_request().with_message(messages::NOT_FOUND)
     } else {
       ApiError::from(err)
     }
@@ -147,18 +151,18 @@ impl<'r> Responder<'r, 'static> for ApiError {
 impl From<DieselError> for ApiError {
   fn from(err: DieselError) -> ApiError {
     if let DieselError::NotFound = err {
-      ApiError::not_found(Self::NOT_FOUND_MESSAGE)
+      ApiError::not_found()
     } else if let DieselError::DatabaseError(kind, info) = err {
       match kind {
         DatabaseErrorKind::UniqueViolation =>
           ApiError::conflict(&format!("Uniqueness error: {}", info.message())),
         DatabaseErrorKind::ForeignKeyViolation =>
-          ApiError::bad_request(&format!("Foreign key violation: {}", info.message())),
+          ApiError::bad_request().with_message(format!("Foreign key violation: {}", info.message())),
         _ =>
-          ApiError::internal_server_error(Self::UNKNOWN_DB_ERROR_MESSAGE),
+          ApiError::internal_server_error(messages::UNKNOWN_DB_ERROR),
       }
     } else {
-      ApiError::internal_server_error(Self::UNKNOWN_DB_ERROR_MESSAGE)
+      ApiError::internal_server_error(messages::UNKNOWN_DB_ERROR)
     }
   }
 }
@@ -188,15 +192,15 @@ pub fn catchers() -> Vec<Catcher> {
 
 #[catch(400)]
 pub fn bad_request_catcher(_: &Request) -> ApiError {
-  ApiError::bad_request("Bad Request")
+  ApiError::bad_request()
 }
 
 #[catch(401)]
 pub fn unauthorized_catcher(_: &Request) -> ApiError {
-  ApiError::unauthorized("Unauthorized")
+  ApiError::unauthorized()
 }
 
 #[catch(403)]
 pub fn forbidden_catcher(_: &Request) -> ApiError {
-  ApiError::forbidden("Forbidden")
+  ApiError::forbidden()
 }

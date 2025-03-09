@@ -105,14 +105,14 @@ impl<'r> FromRequest<'r> for DeveloperUser {
   async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, ApiError> {
     let Some(auth_header) = req.headers().get_one("Authorization")
       .and_then(|value| Authorization::from_str(value).ok()) else {
-        return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized(MISSING_AUTH_HEADER)));
+        return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized().with_message(MISSING_AUTH_HEADER)));
       };
     if auth_header.scheme != "Bearer" {
-      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized(INVALID_AUTH_HEADER)));
+      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized().with_message(INVALID_AUTH_HEADER)));
     }
     let token = auth_header.params;
     let Ok(claim) = verify_token(&token) else {
-      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized(INVALID_AUTH_HEADER)));
+      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized().with_message(INVALID_AUTH_HEADER)));
     };
     request::Outcome::Success(DeveloperUser { claim })
   }
@@ -129,7 +129,7 @@ impl<'r> FromRequest<'r> for AdminUser {
       request::Outcome::Forward(f) => return request::Outcome::Forward(f),
     };
     if !developer.claim.user_flags.contains(UserFlags::ADMIN) {
-      return request::Outcome::Error((Status::Forbidden, ApiError::forbidden("Forbidden")));
+      return request::Outcome::Error((Status::Forbidden, ApiError::forbidden()));
     }
     request::Outcome::Success(AdminUser { claim: developer.claim })
   }

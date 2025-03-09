@@ -44,7 +44,7 @@ pub fn api_routes() -> Vec<Route> {
 async fn authorize(api_key: auth::XApiKey<'_>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<AuthResponse>, ApiError> {
   let jwt_token = create_jwt_for_api_key(&api_key.0, &mut db).await.map_err(|err| {
     match err {
-      AuthError::InvalidApiKey => ApiError::bad_request("Invalid API key"),
+      AuthError::InvalidApiKey => ApiError::bad_request().with_message("Invalid API key"),
       err => ApiError::internal_server_error(&err.to_string()),
     }
   })?;

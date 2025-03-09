@@ -15,10 +15,33 @@ pub struct DeveloperResponse {
   pub api_key: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewGameDao {
+  pub developer_uuid: Uuid,
+  pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameResponse {
+  pub developer_uuid: Uuid,
+  pub game_uuid: Uuid,
+  pub name: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub game_secret_key: Option<String>,
+}
+
 impl DeveloperResponse {
   /// Removes the API key from the response.
   pub fn without_api_key(mut self) -> Self {
     self.api_key = None;
+    self
+  }
+}
+
+impl GameResponse {
+  /// Removes the secret key from the response.
+  pub fn without_secret_key(mut self) -> Self {
+    self.game_secret_key = None;
     self
   }
 }

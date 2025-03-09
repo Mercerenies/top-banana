@@ -7,7 +7,7 @@ pub mod error;
 
 use error::{ApiError, ApiSuccessResponse};
 use auth::{create_jwt_for_api_key, DeveloperUser, AuthError};
-use data_access::{DeveloperResponse, NewGameDao, GameResponse};
+use data_access::{DeveloperOwnedExt, DeveloperResponse, NewGameDao, GameResponse};
 use crate::db::{schema, models};
 use crate::util::{ParamFromStr, generate_key};
 
@@ -66,8 +66,8 @@ async fn get_developer(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>,
     .filter(schema::developers::developer_uuid.eq(&*uuid))
     .get_result::<models::Developer>(&mut db)
     .await
-    .optional()?;
-  let matching_user = check_developer_perms(&requesting_user, matching_user)?;
+    .optional()?
+    .check_permission(&requesting_user)?;
   Ok(ApiSuccessResponse::new(DeveloperResponse::from(matching_user).without_api_key()))
 }
 
@@ -116,14 +116,14 @@ async fn create_game(requesting_user: DeveloperUser, params: Json<NewGameDao>, m
 
 #[get("/game/<uuid>")]
 async fn get_game(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<GameResponse>, ApiError> {
-  let game = schema::games::table
+  let (game, developer_uuid) = schema::games::table
     .filter(schema::games::game_uuid.eq(&*uuid))
     .inner_join(schema::developers::table)
     .select((schema::games::all_columns, schema::developers::developer_uuid))
     .first::<(models::Game, Uuid)>(&mut db)
     .await
-    .optional()?;
-  let (game, developer_uuid) = check_game_perms(&requesting_user, game)?;
+    .optional()?
+    .check_permission(&requesting_user)?;
 
   let game_response = GameResponse {
     developer_uuid,
@@ -132,38 +132,4 @@ async fn get_game(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut 
     game_secret_key: None,
   };
   Ok(ApiSuccessResponse::new(game_response))
-}
-
-/// Returns the matching developer, if they exist and the requesting
-/// user has permission to see them.
-fn check_developer_perms(requesting_user: &DeveloperUser, matching_user: Option<models::Developer>) -> Result<models::Developer, ApiError> {
-  if requesting_user.is_admin() {
-    // Admin has full permission to access everything.
-    return matching_user.ok_or(ApiError::not_found());
-  }
-
-  if let Some(matching_user) = matching_user {
-    // Non-admin developer can only access themself.
-    if requesting_user.user_uuid() == &matching_user.developer_uuid {
-      return Ok(matching_user);
-    }
-  }
-  Err(ApiError::forbidden())
-}
-
-/// Returns the matching game, if they exist and the requesting user
-/// has permission to see them.
-fn check_game_perms(requesting_user: &DeveloperUser, matching_game: Option<(models::Game, Uuid)>) -> Result<(models::Game, Uuid), ApiError> {
-  if requesting_user.is_admin() {
-    // Admin has full permission to access everything.
-    return matching_game.ok_or(ApiError::not_found());
-  }
-
-  // Otherwise, a user only has permission to access their own games.
-  if let Some((matching_game, developer_uuid)) = matching_game {
-    if requesting_user.user_uuid() == &developer_uuid {
-      return Ok((matching_game, developer_uuid));
-    }
-  }
-  Err(ApiError::forbidden())
 }

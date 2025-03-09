@@ -1,8 +1,66 @@
 
 use crate::db::models;
+use super::auth::DeveloperUser;
+use super::error::ApiError;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+/// Trait for objects which have a developer that owns them.
+///
+/// Useful implementors:
+///
+/// * A [`models::Developer`] owns himself.
+///
+/// * Any type `T` can be tagged with a developer [`Uuid`], so that
+/// the tuple `(T, Uuid)` is considered owned.
+pub trait DeveloperOwned {
+  fn get_developer_uuid(&self) -> &Uuid;
+
+  /// Check permissions of the requesting user. If the requesting user
+  /// is an administrator, then they have full permission to access
+  /// any object. Otherwise, the user is only given permission if they
+  /// are the owner of the object.
+  fn check_permission(object: Option<Self>, requesting_user: &DeveloperUser) -> Result<Self, ApiError>
+  where Self: Sized {
+    if requesting_user.is_admin() {
+      return object.ok_or(ApiError::not_found());
+    }
+    if let Some(object) = object {
+      if requesting_user.user_uuid() == object.get_developer_uuid() {
+        return Ok(object);
+      }
+    }
+    Err(ApiError::forbidden())
+  }
+}
+
+/// Extension trait for `Option<T>` where `T` implements [`DeveloperOwned`].
+pub trait DeveloperOwnedExt: Sized {
+  type Target: DeveloperOwned;
+
+  fn check_permission(self, requesting_user: &DeveloperUser) -> Result<Self::Target, ApiError>;
+}
+
+impl DeveloperOwned for models::Developer {
+  fn get_developer_uuid(&self) -> &Uuid {
+    &self.developer_uuid
+  }
+}
+
+impl<T> DeveloperOwned for (T, Uuid) {
+  fn get_developer_uuid(&self) -> &Uuid {
+    &self.1
+  }
+}
+
+impl<T: DeveloperOwned + Sized> DeveloperOwnedExt for Option<T> {
+  type Target = T;
+
+  fn check_permission(self, requesting_user: &DeveloperUser) -> Result<T, ApiError> {
+    T::check_permission(self, requesting_user)
+  }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeveloperResponse {

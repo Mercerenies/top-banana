@@ -7,7 +7,7 @@ use super::db::Db;
 use super::auth::AdminUser;
 use super::error::{ApiSuccessResponse, ApiError};
 
-use rocket::{Route, routes, post};
+use rocket::post;
 use rocket::serde::json::Json;
 use rocket_db_pools::Connection;
 use serde::{Serialize, Deserialize};

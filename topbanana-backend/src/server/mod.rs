@@ -24,6 +24,37 @@ pub struct AuthResponse {
   pub token: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ScoresResponse {
+  pub scores: Vec<ScoresResponseEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ScoresResponseEntry {
+  pub player_name: String,
+  pub player_score: f64,
+  pub player_score_metadata: Option<String>,
+  #[serde(serialize_with = "serialize_datetime")]
+  pub creation_timestamp: chrono::NaiveDateTime,
+}
+
+impl From<models::HighscoreTableEntry> for ScoresResponseEntry {
+  fn from(entry: models::HighscoreTableEntry) -> Self {
+    Self {
+      player_name: entry.player_name,
+      player_score: entry.player_score,
+      player_score_metadata: entry.player_score_metadata,
+      creation_timestamp: entry.creation_timestamp,
+    }
+  }
+}
+
+fn serialize_datetime<S>(datetime: &chrono::NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
+where S: serde::Serializer {
+  let formatted = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
+  serializer.serialize_str(&formatted)
+}
+
 pub async fn run_server() -> Result<Rocket<Ignite>, rocket::Error> {
   build_rocket().launch().await
 }
@@ -48,6 +79,7 @@ pub fn api_routes() -> Vec<Route> {
     get_game,
     create_highscore_table,
     get_highscore_table,
+    get_highscore_table_scores,
   ]
 }
 
@@ -186,4 +218,27 @@ async fn get_highscore_table(requesting_user: DeveloperUser, uuid: ParamFromStr<
     maximum_scores_retained: highscore_table.maximum_scores_retained,
   };
   Ok(ApiSuccessResponse::new(response))
+}
+
+#[get("/highscore-table/<uuid>/scores")]
+async fn get_highscore_table_scores(
+  requesting_user: DeveloperUser,
+  uuid: ParamFromStr<Uuid>,
+  mut db: Connection<db::Db>,
+) -> Result<ApiSuccessResponse<ScoresResponse>, ApiError> {
+  let (highscore_table_id, _developer_uuid) = schema::highscore_tables::table
+    .filter(schema::highscore_tables::table_uuid.eq(&*uuid))
+    .inner_join(schema::games::table.inner_join(schema::developers::table))
+    .select((schema::highscore_tables::id, schema::developers::developer_uuid))
+    .first::<(i32, Uuid)>(&mut db)
+    .await
+    .optional()?
+    .check_permission(&requesting_user)?;
+  let entries = schema::highscore_table_entries::table
+    .filter(schema::highscore_table_entries::highscore_table_id.eq(highscore_table_id))
+    .order(schema::highscore_table_entries::player_score.desc())
+    .load::<models::HighscoreTableEntry>(&mut db)
+    .await?;
+  let entries = entries.into_iter().map(ScoresResponseEntry::from).collect();
+  Ok(ApiSuccessResponse::new(ScoresResponse { scores: entries }))
 }

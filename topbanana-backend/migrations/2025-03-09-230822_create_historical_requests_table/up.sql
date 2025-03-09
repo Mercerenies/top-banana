@@ -1,0 +1,6 @@
+
+CREATE TABLE historical_requests (
+       id SERIAL PRIMARY KEY,
+       request_uuid UUID NOT NULL UNIQUE,
+       timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

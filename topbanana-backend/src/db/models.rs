@@ -93,3 +93,19 @@ pub struct NewHighscoreTableEntry {
   pub player_score: f64,
   pub player_score_metadata: Option<String>,
 }
+
+#[derive(Queryable, Selectable, Clone)]
+#[diesel(table_name = super::schema::historical_requests)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct HistoricalRequest {
+  pub id: i32,
+  pub request_uuid: Uuid,
+  pub timestamp: chrono::NaiveDateTime,
+}
+
+#[derive(Insertable, Clone)]
+#[diesel(table_name = super::schema::historical_requests)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct NewHistoricalRequest {
+  pub request_uuid: Uuid,
+}

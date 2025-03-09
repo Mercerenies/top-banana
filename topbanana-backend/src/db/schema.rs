@@ -51,6 +51,14 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    historical_requests (id) {
+        id -> Int4,
+        request_uuid -> Uuid,
+        timestamp -> Timestamptz,
+    }
+}
+
 diesel::joinable!(games -> developers (developer_id));
 diesel::joinable!(highscore_table_entries -> highscore_tables (highscore_table_id));
 diesel::joinable!(highscore_tables -> games (game_id));
@@ -60,4 +68,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     games,
     highscore_table_entries,
     highscore_tables,
+    historical_requests,
 );

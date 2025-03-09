@@ -10,6 +10,7 @@ pub struct DeveloperResponse {
   pub name: String,
   pub email: String,
   pub url: Option<String>,
+  pub is_admin: bool,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub api_key: Option<String>,
 }
@@ -29,6 +30,7 @@ impl From<models::Developer> for DeveloperResponse {
       name: d.name,
       email: d.email,
       url: d.url,
+      is_admin: d.is_admin,
       api_key: d.api_key,
     }
   }
@@ -41,6 +43,7 @@ impl From<models::NewDeveloper> for DeveloperResponse {
       name: d.name,
       email: d.email,
       url: d.url,
+      is_admin: d.is_admin,
       api_key: d.api_key,
     }
   }

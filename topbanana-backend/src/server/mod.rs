@@ -9,6 +9,7 @@ use error::{ApiError, ApiSuccessResponse};
 use auth::{create_jwt_for_api_key, DeveloperUser, AuthError};
 use data_access::DeveloperResponse;
 use crate::db::{schema, models};
+use crate::util::ParamFromStr;
 
 use rocket::{Route, Rocket, Build, Ignite, routes, post, get};
 use rocket_db_pools::{Database, Connection};
@@ -16,8 +17,6 @@ use serde::Serialize;
 use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-
-use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthResponse {
@@ -43,6 +42,7 @@ pub fn api_routes() -> Vec<Route> {
   routes![
     authorize,
     get_developer,
+    get_current_developer,
   ]
 }
 
@@ -58,14 +58,22 @@ async fn authorize(api_key: auth::XApiKey<'_>, mut db: Connection<db::Db>) -> Re
 }
 
 #[get("/developer/<uuid>")]
-async fn get_developer(requesting_user: DeveloperUser, uuid: &str, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
-  let uuid = Uuid::from_str(uuid).map_err(|_| ApiError::bad_request())?;
+async fn get_developer(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
   let matching_user = schema::developers::table
-    .filter(schema::developers::developer_uuid.eq(&uuid))
+    .filter(schema::developers::developer_uuid.eq(&*uuid))
     .get_result::<models::Developer>(&mut db)
     .await
     .optional()?;
   let matching_user = check_developer_perms(&requesting_user, matching_user)?;
+  Ok(ApiSuccessResponse::new(DeveloperResponse::from(matching_user).without_api_key()))
+}
+
+#[get("/developer/me")]
+async fn get_current_developer(requesting_user: DeveloperUser, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<DeveloperResponse>, ApiError> {
+  let matching_user = schema::developers::table
+    .filter(schema::developers::developer_uuid.eq(requesting_user.user_uuid()))
+    .get_result::<models::Developer>(&mut db)
+    .await?;
   Ok(ApiSuccessResponse::new(DeveloperResponse::from(matching_user).without_api_key()))
 }
 

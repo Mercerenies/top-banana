@@ -60,12 +60,8 @@ pub async fn run_server() -> Result<Rocket<Ignite>, rocket::Error> {
 }
 
 pub fn build_rocket() -> Rocket<Build> {
-  let mut base_api_routes = Vec::new();
-  base_api_routes.extend(api_routes());
-  base_api_routes.extend(admin::admin_routes());
-
   rocket::build()
-    .mount("/api", base_api_routes)
+    .mount("/api", api_routes())
     .attach(db::Db::init())
     .register("/api", error::catchers())
 }
@@ -73,6 +69,7 @@ pub fn build_rocket() -> Rocket<Build> {
 pub fn api_routes() -> Vec<Route> {
   routes![
     authorize,
+    admin::create_developer,
     get_developer,
     get_current_developer,
     create_game,

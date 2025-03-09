@@ -22,12 +22,8 @@ pub struct NewDeveloperParams {
   pub url: Option<String>,
 }
 
-pub fn admin_routes() -> Vec<Route> {
-  routes![create_developer]
-}
-
 #[post("/developer", data = "<params>")]
-async fn create_developer(
+pub async fn create_developer(
   _admin_user: AdminUser,
   params: Json<NewDeveloperParams>,
   mut db: Connection<Db>,

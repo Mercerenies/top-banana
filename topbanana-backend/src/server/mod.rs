@@ -21,9 +21,12 @@ pub async fn run_server() -> Result<Rocket<Ignite>, rocket::Error> {
 }
 
 pub fn build_rocket() -> Rocket<Build> {
+  let mut base_api_routes = Vec::new();
+  base_api_routes.extend(api_routes());
+  base_api_routes.extend(admin::admin_routes());
+
   rocket::build()
-    .mount("/api", api_routes())
-    .mount("/api/admin", admin::admin_routes())
+    .mount("/api", base_api_routes)
     .attach(db::Db::init())
     .register("/api", error::catchers())
 }

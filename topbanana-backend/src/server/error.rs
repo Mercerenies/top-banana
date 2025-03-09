@@ -56,6 +56,9 @@ impl<T: Serialize> ApiSuccessResponse<T> {
 }
 
 impl ApiError {
+  pub const NOT_FOUND_MESSAGE: &'static str = "Not Found";
+  pub const UNKNOWN_DB_ERROR_MESSAGE: &'static str = "An unexpected database error occurred";
+
   pub fn bad_request(message: &str) -> ApiError {
     ApiError {
       status: Status::BadRequest,
@@ -118,7 +121,7 @@ impl ApiError {
   /// hence failure to lookup is a Bad Request.
   pub fn from_on_create(err: DieselError) -> ApiError {
     if let DieselError::NotFound = err {
-      ApiError::bad_request("Not Found")
+      ApiError::bad_request(Self::NOT_FOUND_MESSAGE)
     } else {
       ApiError::from(err)
     }
@@ -144,7 +147,7 @@ impl<'r> Responder<'r, 'static> for ApiError {
 impl From<DieselError> for ApiError {
   fn from(err: DieselError) -> ApiError {
     if let DieselError::NotFound = err {
-      ApiError::not_found("Not Found")
+      ApiError::not_found(Self::NOT_FOUND_MESSAGE)
     } else if let DieselError::DatabaseError(kind, info) = err {
       match kind {
         DatabaseErrorKind::UniqueViolation =>
@@ -152,10 +155,10 @@ impl From<DieselError> for ApiError {
         DatabaseErrorKind::ForeignKeyViolation =>
           ApiError::bad_request(&format!("Foreign key violation: {}", info.message())),
         _ =>
-          ApiError::internal_server_error("An unexpected database error occurred"),
+          ApiError::internal_server_error(Self::UNKNOWN_DB_ERROR_MESSAGE),
       }
     } else {
-      ApiError::internal_server_error("An unexpected database error occurred")
+      ApiError::internal_server_error(Self::UNKNOWN_DB_ERROR_MESSAGE)
     }
   }
 }

@@ -31,7 +31,7 @@ pub fn admin_routes() -> Vec<Route> {
   routes![create_developer]
 }
 
-#[post("/new-developer", data = "<params>")]
+#[post("/developer", data = "<params>")]
 async fn create_developer(
   _admin_user: AdminUser,
   params: Json<NewDeveloperParams>,

@@ -59,6 +59,9 @@ struct DeveloperPerms {
   pub is_admin: bool,
 }
 
+pub const MISSING_AUTH_HEADER: &str = "Missing Authorization header";
+pub const INVALID_AUTH_HEADER: &str = "Invalid Authorization header";
+
 pub async fn create_jwt_for_api_key(api_key: &str, db: &mut AsyncPgConnection) -> Result<String, AuthError> {
   let perms = developers::table.filter(developers::api_key.eq(api_key))
     .select(DeveloperPerms::as_select())
@@ -102,14 +105,14 @@ impl<'r> FromRequest<'r> for DeveloperUser {
   async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, ApiError> {
     let Some(auth_header) = req.headers().get_one("Authorization")
       .and_then(|value| Authorization::from_str(value).ok()) else {
-        return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized("Missing Authorization header")));
+        return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized(MISSING_AUTH_HEADER)));
       };
     if auth_header.scheme != "Bearer" {
-      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized("Invalid Authorization header")));
+      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized(INVALID_AUTH_HEADER)));
     }
     let token = auth_header.params;
     let Ok(claim) = verify_token(&token) else {
-      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized("Invalid Authorization header")));
+      return request::Outcome::Error((Status::Unauthorized, ApiError::unauthorized(INVALID_AUTH_HEADER)));
     };
     request::Outcome::Success(DeveloperUser { claim })
   }

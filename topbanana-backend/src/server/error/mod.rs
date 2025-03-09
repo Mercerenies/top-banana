@@ -8,10 +8,11 @@ use rocket::serde::json::Json;
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
+use utoipa::ToSchema;
 
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ApiStatus {
   Success,
@@ -23,8 +24,8 @@ pub struct ApiSuccessResponse<T> {
   json: Json<ApiSuccessResponseBody<T>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct ApiSuccessResponseBody<T> {
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ApiSuccessResponseBody<T> {
   status: ApiStatus,
   #[serde(flatten)]
   body: T,

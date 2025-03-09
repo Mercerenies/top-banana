@@ -4,10 +4,12 @@ pub mod auth;
 pub mod data_access;
 pub mod db;
 pub mod error;
+pub mod openapi;
 
-use error::{ApiError, ApiSuccessResponse};
+use error::{ApiError, ApiSuccessResponse, ApiSuccessResponseBody};
 use auth::{create_jwt_for_api_key, DeveloperUser, AuthError};
 use data_access::{DeveloperOwnedExt, DeveloperResponse, NewGameDao, GameResponse, NewHighscoreTableDao, HighscoreTableResponse};
+use openapi::SecurityAddon;
 use crate::db::{schema, models};
 use crate::util::{ParamFromStr, generate_key};
 
@@ -18,9 +20,20 @@ use serde::Serialize;
 use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use utoipa::{OpenApi, ToSchema};
+use utoipa_swagger_ui::SwaggerUi;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(OpenApi)]
+#[openapi(
+  paths(authorize),
+  modifiers(&SecurityAddon),
+  components(schemas(ApiSuccessResponseBody<AuthResponse>)),
+)]
+struct ApiDoc;
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct AuthResponse {
+  /// A fresh JWT token associated to the user.
   pub token: String,
 }
 
@@ -62,6 +75,7 @@ pub async fn run_server() -> Result<Rocket<Ignite>, rocket::Error> {
 pub fn build_rocket() -> Rocket<Build> {
   rocket::build()
     .mount("/api", api_routes())
+    .mount("/", SwaggerUi::new("/swagger-ui/<_..>").url("/api-docs/openapi.json", ApiDoc::openapi()))
     .attach(db::Db::init())
     .register("/api", error::catchers())
 }
@@ -80,6 +94,19 @@ pub fn api_routes() -> Vec<Route> {
   ]
 }
 
+/// Authorizes a developer to perform API calls.
+///
+/// Takes an API key in the X-Api-Key header and returns a JWT token
+/// if successful.
+#[utoipa::path(
+  post,
+  path="/api/authorize",
+  security(("X-Api-Key" = [])),
+  responses(
+    (status = 200, description = "A JWT token", body = ApiSuccessResponseBody<AuthResponse>),
+    (status = 400, description = "Invalid API key")
+  ),
+)]
 #[post("/authorize")]
 async fn authorize(api_key: auth::XApiKey<'_>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<AuthResponse>, ApiError> {
   let jwt_token = create_jwt_for_api_key(&api_key.0, &mut db).await.map_err(|err| {

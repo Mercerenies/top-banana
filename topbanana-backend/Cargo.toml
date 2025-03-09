@@ -17,4 +17,6 @@ rocket = { version = "0.5.1", features = ["json"] }
 rocket_db_pools = { version = "0.2.0", features = ["diesel_postgres"] }
 serde = { version = "1.0.218", features = ["derive"] }
 thiserror = "2.0.12"
+utoipa = { version = "5.3.1", features = ["rocket_extras"] }
+utoipa-swagger-ui = { version = "9.0.0", features = ["rocket", "debug-embed"] }
 uuid = { version = "1.15.1", features = ["v4", "serde"] }

@@ -6,10 +6,18 @@ mod hasher;
 
 pub use hasher::{RequestSigningHasher, SecurityLevel, Sha256Hasher, Sha1Hasher};
 
+use crate::db::{schema, models};
+
 use base64::engine::general_purpose::URL_SAFE;
 use base64::Engine;
 use thiserror::Error;
+use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use uuid::Uuid;
+use chrono::{NaiveDateTime, TimeDelta};
+use chrono::naive::serde::ts_seconds;
+use diesel::prelude::*;
+use diesel_async::{RunQueryDsl, AsyncPgConnection};
 
 use std::str::{from_utf8, Utf8Error, FromStr};
 
@@ -26,6 +34,26 @@ use std::str::{from_utf8, Utf8Error, FromStr};
 pub struct GameRequestPayload {
   payload_base64: String,
   signature_base64: String,
+}
+
+/// The body of a game request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameRequestBody<T> {
+  pub game_uuid: Uuid,
+  pub request_uuid: Uuid,
+  #[serde(with = "ts_seconds")]
+  pub request_timestamp: NaiveDateTime,
+  pub algo: RequestAlgorithm,
+  #[serde(flatten)]
+  pub body: T,
+}
+
+/// Chosen algorithm for a game request.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all="lowercase")]
+pub enum RequestAlgorithm {
+  Sha1,
+  Sha256,
 }
 
 #[derive(Debug, Clone, Error)]
@@ -51,6 +79,23 @@ pub enum DeserializeError {
   Utf8Error(#[from] Utf8Error),
 }
 
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum RequestBodyVerifyError {
+  #[error("{0}")]
+  DeserializeError(#[from] DeserializeError),
+  #[error("{0}")]
+  DieselError(#[from] diesel::result::Error),
+  #[error("No such game")]
+  NoSuchGame,
+  #[error("{0}")]
+  VerificationError(#[from] VerificationError),
+  #[error("Request timestamp is not current")]
+  BadRequestTimestamp,
+  #[error("Request has already been seen")]
+  RequestAlreadySeen,
+}
+
 impl GameRequestPayload {
   pub fn new(payload_base64: String, signature_base64: String) -> Self {
     Self {
@@ -59,7 +104,8 @@ impl GameRequestPayload {
     }
   }
 
-  pub fn verify(&self, secret_key: &str, hasher: &impl RequestSigningHasher) -> Result<(), VerificationError> {
+  pub fn verify<H>(&self, secret_key: &str, hasher: &H) -> Result<(), VerificationError>
+  where H: RequestSigningHasher + ?Sized {
     let full_payload = format!("{}.{}", self.payload_base64, secret_key);
     let expected_signature = hasher.apply_hash(&full_payload);
     let given_signature = URL_SAFE.decode(self.signature_base64.as_bytes()).map_err(|_| VerificationError { _priv: () })?;
@@ -73,6 +119,65 @@ impl GameRequestPayload {
     let payload = URL_SAFE.decode(&self.payload_base64)?;
     let payload = serde_json::from_str(from_utf8(&payload)?)?;
     Ok(payload)
+  }
+}
+
+impl<T> GameRequestBody<T> {
+  /// Amount of time allowed between the system clock and a request's timestamp.
+  pub const TIME_SKEW: TimeDelta = TimeDelta::days(2);
+
+  pub async fn full_verify_at_time(payload: &GameRequestPayload, db: &mut AsyncPgConnection, now: NaiveDateTime) -> Result<Self, RequestBodyVerifyError>
+  where T: DeserializeOwned {
+    let body = payload.deserialize::<Self>()?;
+    let hasher = body.algo.into_hasher();
+    let secret_key = schema::games::table
+      .filter(schema::games::game_uuid.eq(body.game_uuid))
+      .select(schema::games::game_secret_key)
+      .first::<String>(db)
+      .await
+      .optional()?
+      .ok_or(RequestBodyVerifyError::NoSuchGame)?;
+
+    // Verify the signing key.
+    payload.verify(&secret_key, &*hasher)?;
+
+    // Verify the date.
+    let time_diff = now - body.request_timestamp;
+    if time_diff.abs() > Self::TIME_SKEW {
+      return Err(RequestBodyVerifyError::BadRequestTimestamp);
+    }
+
+    // Verify that the request UUID has not been seen before.
+    let subquery = schema::historical_requests::table
+      .filter(schema::historical_requests::request_uuid.eq(&body.request_uuid));
+    if !diesel::select(diesel::dsl::exists(subquery)).get_result::<bool>(db).await? {
+      return Err(RequestBodyVerifyError::RequestAlreadySeen);
+    }
+
+    // Everything is good; insert the request UUID into the historical
+    // requests table for later.
+    let new_row = models::NewHistoricalRequest { request_uuid: body.request_uuid };
+    diesel::insert_into(schema::historical_requests::table)
+      .values(&new_row)
+      .execute(db)
+      .await?;
+
+    Ok(body)
+  }
+
+  pub async fn full_verify(payload: &GameRequestPayload, db: &mut AsyncPgConnection) -> Result<Self, RequestBodyVerifyError>
+  where T: DeserializeOwned {
+    let now = chrono::Utc::now().naive_utc();
+    Self::full_verify_at_time(payload, db, now).await
+  }
+}
+
+impl RequestAlgorithm {
+  pub fn into_hasher(self) -> Box<dyn RequestSigningHasher> {
+    match self {
+      RequestAlgorithm::Sha1 => Box::new(Sha1Hasher),
+      RequestAlgorithm::Sha256 => Box::new(Sha256Hasher),
+    }
   }
 }
 

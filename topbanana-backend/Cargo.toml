@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0.97"
 base64 = "0.22.1"
 bitflags = { version = "2.9.0", features = ["serde"] }
-chrono = "0.4.40"
+chrono = { version = "0.4.40", features = ["serde"] }
 diesel = { version = "2.1.6", features = ["postgres", "uuid", "chrono"] }
 diesel-async = { version = "0.4.1", features = ["postgres"] }
 digest = "0.10.7"

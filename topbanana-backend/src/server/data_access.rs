@@ -95,6 +95,8 @@ pub struct NewGameDao {
   #[schema(value_type = OpenApiUuid)]
   pub developer_uuid: Uuid,
   pub name: String,
+  #[serde(default)]
+  pub security_level: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -109,6 +111,7 @@ pub struct GameResponse {
   /// creation and cannot be recovered after the fact.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub game_secret_key: Option<String>,
+  pub security_level: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

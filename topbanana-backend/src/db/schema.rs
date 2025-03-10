@@ -25,6 +25,7 @@ diesel::table! {
         game_secret_key -> Varchar,
         #[max_length = 100]
         name -> Varchar,
+        security_level -> Int4,
     }
 }
 

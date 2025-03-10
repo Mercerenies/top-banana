@@ -2,12 +2,19 @@
 use digest::Digest;
 use sha1::Sha1;
 use sha2::Sha256;
+use thiserror::Error;
 
 /// A type capable of signing request payloads.
 pub trait RequestSigningHasher {
   fn security_level(&self) -> SecurityLevel;
 
   fn apply_hash(&self, buf: &str) -> Box<[u8]>;
+}
+
+#[derive(Debug, Clone, Error)]
+#[error("Invalid SecurityLevel constant")]
+pub struct TryFromSecurityLevelError {
+  _priv: (),
 }
 
 #[derive(Debug, Clone)]
@@ -53,5 +60,32 @@ impl RequestSigningHasher for Sha1Hasher {
     let mut hasher = Sha1::new();
     hasher.update(buf.as_bytes());
     hasher.finalize().into_iter().collect()
+  }
+}
+
+impl From<SecurityLevel> for i32 {
+  fn from(level: SecurityLevel) -> Self {
+    match level {
+      SecurityLevel::Low => 0,
+      SecurityLevel::High => 10,
+    }
+  }
+}
+
+impl TryFrom<i32> for SecurityLevel {
+  type Error = TryFromSecurityLevelError;
+
+  fn try_from(level: i32) -> Result<Self, Self::Error> {
+    match level {
+      0 => Ok(SecurityLevel::Low),
+      10 => Ok(SecurityLevel::High),
+      _ => Err(TryFromSecurityLevelError { _priv: () }),
+    }
+  }
+}
+
+impl Default for SecurityLevel {
+  fn default() -> Self {
+    SecurityLevel::High
   }
 }

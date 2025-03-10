@@ -37,6 +37,7 @@ pub struct Game {
   pub game_uuid: Uuid,
   pub game_secret_key: String,
   pub name: String,
+  pub security_level: i32,
 }
 
 #[derive(Insertable, Clone)]
@@ -47,6 +48,7 @@ pub struct NewGame {
   pub game_uuid: Uuid,
   pub game_secret_key: String,
   pub name: String,
+  pub security_level: i32,
 }
 
 #[derive(Queryable, Selectable, Associations, Clone)]

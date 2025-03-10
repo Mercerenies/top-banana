@@ -1,0 +1,3 @@
+
+ALTER TABLE games
+      ADD COLUMN security_level INTEGER DEFAULT 10 NOT NULL;

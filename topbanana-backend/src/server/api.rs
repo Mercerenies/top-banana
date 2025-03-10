@@ -182,6 +182,7 @@ async fn create_game(requesting_user: DeveloperUser, params: Json<NewGameDao>, m
     game_uuid: Uuid::new_v4(),
     game_secret_key: generate_key(),
     name: params.name,
+    security_level: params.security_level.unwrap_or_default(),
   };
   diesel::insert_into(schema::games::table)
     .values(&new_game)
@@ -194,6 +195,7 @@ async fn create_game(requesting_user: DeveloperUser, params: Json<NewGameDao>, m
     game_uuid: new_game.game_uuid,
     name: new_game.name,
     game_secret_key: Some(new_game.game_secret_key),
+    security_level: new_game.security_level,
   };
   Ok(ApiSuccessResponse::new(game_response))
 }
@@ -231,6 +233,7 @@ async fn get_game(requesting_user: DeveloperUser, uuid: ParamFromStr<Uuid>, mut 
     game_uuid: game.game_uuid,
     name: game.name,
     game_secret_key: None,
+    security_level: game.security_level,
   };
   Ok(ApiSuccessResponse::new(game_response))
 }

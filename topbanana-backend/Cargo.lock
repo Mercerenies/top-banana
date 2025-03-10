@@ -1760,6 +1760,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2134,12 +2145,16 @@ dependencies = [
  "chrono",
  "diesel",
  "diesel-async",
+ "digest",
  "fern",
  "jsonwebtoken",
  "rand 0.9.0",
  "rocket",
  "rocket_db_pools",
  "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
  "thiserror",
  "utoipa",
  "utoipa-swagger-ui",

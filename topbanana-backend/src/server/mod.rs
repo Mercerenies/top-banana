@@ -6,6 +6,7 @@ pub mod data_access;
 pub mod db;
 pub mod error;
 pub mod openapi;
+pub mod requests;
 
 use rocket::{Rocket, Build, Ignite};
 use rocket_db_pools::Database;

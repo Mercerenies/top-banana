@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://b6cwree1dx1aj"]
+
+[ext_resource type="Script" path="res://top_banana_client.gd" id="1_h8f7y"]
+[ext_resource type="Script" path="res://addons/topbanana/topbanana_client.gd" id="2_y8hus"]
+
+[node name="TopBananaClientTest" type="Node"]
+script = ExtResource("1_h8f7y")
+
+[node name="TopBananaClient" type="Node" parent="."]
+script = ExtResource("2_y8hus")
+server_url = "http://127.0.0.1:8000/"
+game_uuid = "b1eecd50-0b74-4690-b7ab-dfb161efe023"
+game_secret_key = "bsqE8TVPHso0E2rE_wYoUJm4VOhYe1Mi1gNNFbNolp8L8jVn1QR1eR1vZHOGZ5QMIOibaojOw8vt4Sr3Ccnl4Q"

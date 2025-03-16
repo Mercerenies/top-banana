@@ -158,7 +158,7 @@ impl<T> GameRequestBody<T> {
     // Verify that the request UUID has not been seen before.
     let subquery = schema::historical_requests::table
       .filter(schema::historical_requests::request_uuid.eq(&body.request_uuid));
-    if !diesel::select(diesel::dsl::exists(subquery)).get_result::<bool>(db).await? {
+    if diesel::select(diesel::dsl::exists(subquery)).get_result::<bool>(db).await? {
       return Err(RequestBodyVerifyError::RequestAlreadySeen);
     }
 

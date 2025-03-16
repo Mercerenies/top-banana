@@ -21,6 +21,7 @@ pub async fn run_server() -> Result<Rocket<Ignite>, rocket::Error> {
 pub fn build_rocket() -> Rocket<Build> {
   rocket::build()
     .mount("/api", api::api_routes())
+    .mount("/tables", highscore_tables::highscore_table_routes())
     .mount("/", SwaggerUi::new("/swagger-ui/<_..>").url("/api-docs/openapi.json", openapi::ApiDoc::openapi()))
     .attach(db::Db::init())
     .register("/api", error::catchers())

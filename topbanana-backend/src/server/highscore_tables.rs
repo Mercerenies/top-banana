@@ -27,8 +27,13 @@ struct GetHighscoreTableParams {
 #[get("/scores", data = "<params>")]
 async fn get_highscore_table_scores(params: DataFromStr<GameRequestPayload>, mut db: Connection<db::Db>) -> Result<ApiSuccessResponse<ScoresResponse>, ApiError> {
   let params = GameRequestBody::<GetHighscoreTableParams>::full_verify(&params, &mut db).await?;
+  // Note: Filter on game UUID as well. If the user gives a mismatched
+  // game UUID and table UUID, we have to reject the request for
+  // security reasons.
   let highscore_table_id = schema::highscore_tables::table
+    .inner_join(schema::games::table)
     .filter(schema::highscore_tables::table_uuid.eq(params.body.table_uuid))
+    .filter(schema::games::game_uuid.eq(params.game_uuid))
     .select(schema::highscore_tables::id)
     .first::<i32>(&mut db)
     .await?;

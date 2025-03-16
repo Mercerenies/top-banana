@@ -2152,6 +2152,7 @@ dependencies = [
  "rand 0.9.0",
  "rocket",
  "rocket_db_pools",
+ "scoped-futures",
  "serde",
  "serde_json",
  "sha1",

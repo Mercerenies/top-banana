@@ -21,6 +21,8 @@ use diesel_async::{RunQueryDsl, AsyncPgConnection};
 use utoipa::ToSchema;
 use serde::Serialize;
 
+pub const MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN: i32 = 100;
+
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct AuthResponse {
   /// A fresh JWT token associated to the user.
@@ -266,7 +268,7 @@ async fn create_highscore_table(requesting_user: DeveloperUser, params: Json<New
     game_id,
     name: params.name,
     table_uuid: Uuid::new_v4(),
-    maximum_scores_retained: params.maximum_scores_retained,
+    maximum_scores_retained: normalize_max_scores(params.maximum_scores_retained, &requesting_user),
   };
   diesel::insert_into(schema::highscore_tables::table)
     .values(&new_highscore_table)
@@ -281,6 +283,24 @@ async fn create_highscore_table(requesting_user: DeveloperUser, params: Json<New
     maximum_scores_retained: new_highscore_table.maximum_scores_retained,
   };
   Ok(ApiSuccessResponse::new(response))
+}
+
+/// Non-admin users are not permitted to make highscore tables with no
+/// limit, or tables with a limit higher than
+/// [`MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN`]. This function enforces
+/// that limit. Admin users are not subject to this restriction.
+fn normalize_max_scores(maximum_scores_retained: Option<i32>, requesting_user: &DeveloperUser) -> Option<i32> {
+  if requesting_user.is_admin() {
+    // Implicitly trust admin users. Do not restrict their inputs.
+    return maximum_scores_retained;
+  }
+  let Some(n) = maximum_scores_retained else {
+    return Some(MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN);
+  };
+  if n < 0 || n > MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN {
+    return Some(MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN);
+  }
+  Some(n)
 }
 
 /// Queries the details of a highscore table.

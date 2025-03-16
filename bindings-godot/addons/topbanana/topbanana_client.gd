@@ -43,6 +43,35 @@ func get_scores(table_uuid: String, limit = null):
     return request_obj
 
 
+func submit_score(table_uuid: String, name: String, score: float, metadata = null):
+    var url := server_url + "tables/scores/new"
+    var payload := _make_auth_payload({
+        "table_uuid": table_uuid,
+        "player_name": name,
+        "player_score": score,
+        "player_score_metadata": metadata,
+    })
+    var payload_json := JSON.stringify(payload)
+    var payload_base64 := _base64url(payload_json)
+    var signature := _get_sha256_signature(payload_base64)
+
+    var http_request := HTTPRequest.new()
+    add_child(http_request)
+    var request_obj := Request.new()
+    http_request.request_completed.connect((func _then(result, resp_code, headers, body):
+            http_request.queue_free()
+            if result != 0:
+                push_error("Error %s: %s" % [result, body.get_string_from_utf8()])
+                return
+            if resp_code < 200 || resp_code > 299:
+                push_error("Error %s: %s" % [resp_code, body.get_string_from_utf8()])
+                return
+            request_obj.request_completed.emit(null)),
+        CONNECT_ONE_SHOT)
+    http_request.request(url, [], HTTPClient.METHOD_POST, payload_base64 + "." + signature)
+    return request_obj
+
+
 func _create_highscore_entry(json: Dictionary):
     return HighscoreEntry.new(json["player_name"], json["player_score"], json["player_score_metadata"], json["creation_timestamp"])
 

@@ -17,7 +17,7 @@ use utoipa::ToSchema;
 /// * A [`Uuid`] is owned by the developer it refers to.
 ///
 /// * Any type `T` can be tagged with a developer [`Uuid`], so that
-/// the tuple `(T, Uuid)` is considered owned.
+///   the tuple `(T, Uuid)` is considered owned.
 pub trait DeveloperOwned {
   fn get_developer_uuid(&self) -> &Uuid;
 

@@ -30,12 +30,13 @@ pub struct Sha1Hasher;
 /// support such engines can voluntarily support older hashing
 /// functions, while those who don't need the legacy support can
 /// maintain a higher security model.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SecurityLevel {
   /// Low-security hash functions, including functions that have been
   /// effectively broken.
   Low,
   /// High-security fast hash functions.
+  #[default]
   High,
 }
 
@@ -81,11 +82,5 @@ impl TryFrom<i32> for SecurityLevel {
       10 => Ok(SecurityLevel::High),
       _ => Err(TryFromSecurityLevelError { _priv: () }),
     }
-  }
-}
-
-impl Default for SecurityLevel {
-  fn default() -> Self {
-    SecurityLevel::High
   }
 }

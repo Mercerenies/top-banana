@@ -7,6 +7,7 @@ mod hasher;
 pub use hasher::{RequestSigningHasher, SecurityLevel, Sha256Hasher, Sha1Hasher};
 
 use crate::db::{schema, models};
+use crate::server::error::ApiError;
 
 use base64::engine::general_purpose::URL_SAFE;
 use base64::Engine;
@@ -94,6 +95,8 @@ pub enum RequestBodyVerifyError {
   BadRequestTimestamp,
   #[error("Request has already been seen")]
   RequestAlreadySeen,
+  #[error("Security level not attained")]
+  SecurityLevelNotAttained,
 }
 
 impl GameRequestPayload {
@@ -130,13 +133,18 @@ impl<T> GameRequestBody<T> {
   where T: DeserializeOwned {
     let body = payload.deserialize::<Self>()?;
     let hasher = body.algo.into_hasher();
-    let secret_key = schema::games::table
+    let (secret_key, security_level) = schema::games::table
       .filter(schema::games::game_uuid.eq(body.game_uuid))
-      .select(schema::games::game_secret_key)
-      .first::<String>(db)
+      .select((schema::games::game_secret_key, schema::games::security_level))
+      .first::<(String, i32)>(db)
       .await
       .optional()?
       .ok_or(RequestBodyVerifyError::NoSuchGame)?;
+
+    // Verify that the appropriate security level is being used.
+    if i32::from(hasher.security_level()) < security_level {
+      return Err(RequestBodyVerifyError::SecurityLevelNotAttained);
+    }
 
     // Verify the signing key.
     payload.verify(&secret_key, &*hasher)?;
@@ -173,7 +181,7 @@ impl<T> GameRequestBody<T> {
 }
 
 impl RequestAlgorithm {
-  pub fn into_hasher(self) -> Box<dyn RequestSigningHasher> {
+  pub fn into_hasher(self) -> Box<dyn RequestSigningHasher + Send + Sync + 'static> {
     match self {
       RequestAlgorithm::Sha1 => Box::new(Sha1Hasher),
       RequestAlgorithm::Sha256 => Box::new(Sha256Hasher),
@@ -189,5 +197,19 @@ impl FromStr for GameRequestPayload {
       return Err(GameRequestPayloadFromStrError { _priv: () });
     };
     Ok(GameRequestPayload::new(payload_base64.to_string(), signature_base64.to_string()))
+  }
+}
+
+impl From<RequestBodyVerifyError> for ApiError {
+  fn from(e: RequestBodyVerifyError) -> Self {
+    match e {
+      RequestBodyVerifyError::DeserializeError(_) => ApiError::bad_request(),
+      RequestBodyVerifyError::DieselError(e) => e.into(),
+      RequestBodyVerifyError::VerificationError(_) => ApiError::forbidden(),
+      RequestBodyVerifyError::BadRequestTimestamp => ApiError::forbidden(),
+      RequestBodyVerifyError::RequestAlreadySeen => ApiError::forbidden(),
+      RequestBodyVerifyError::NoSuchGame => ApiError::not_found().with_message("No such game"),
+      RequestBodyVerifyError::SecurityLevelNotAttained => ApiError::forbidden().with_message("Invalid low-security algorithm"),
+    }
   }
 }

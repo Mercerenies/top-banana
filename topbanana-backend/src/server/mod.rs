@@ -5,6 +5,7 @@ pub mod auth;
 pub mod data_access;
 pub mod db;
 pub mod error;
+pub mod highscore_tables;
 pub mod openapi;
 pub mod requests;
 

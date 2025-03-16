@@ -17,7 +17,7 @@ use rocket::serde::json::Json;
 use rocket_db_pools::Connection;
 use uuid::Uuid;
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{RunQueryDsl, AsyncPgConnection};
 use utoipa::ToSchema;
 use serde::Serialize;
 
@@ -350,11 +350,16 @@ async fn get_highscore_table_scores(
     .await
     .optional()?
     .check_permission(&requesting_user)?;
+  let scores = get_scores_for_table(highscore_table_id, &mut db).await?;
+  Ok(ApiSuccessResponse::new(scores))
+}
+
+pub async fn get_scores_for_table(highscore_table_id: i32, db: &mut AsyncPgConnection) -> diesel::QueryResult<ScoresResponse> {
   let entries = schema::highscore_table_entries::table
     .filter(schema::highscore_table_entries::highscore_table_id.eq(highscore_table_id))
     .order((schema::highscore_table_entries::player_score.desc(), schema::highscore_table_entries::creation_timestamp.asc()))
-    .load::<models::HighscoreTableEntry>(&mut db)
+    .load::<models::HighscoreTableEntry>(db)
     .await?;
   let entries = entries.into_iter().map(ScoresResponseEntry::from).collect();
-  Ok(ApiSuccessResponse::new(ScoresResponse { scores: entries }))
+  Ok(ScoresResponse { scores: entries })
 }

@@ -35,7 +35,12 @@ function TopBanana_get_scores(game, table_uuid, limit, callback) {
 
   var body = payload_base64 + "." + signature;
   var request_id = http_request(url, "GET", ctrl_TopBanana._empty_map, body);
-  ctrl_TopBanana._requests_map[? request_id] = callback;
+  ctrl_TopBanana._requests_map[? request_id] = method({ "callback": callback }, _TopBanana_get_scores_callback);
+}
+
+function _TopBanana_get_scores_callback() {
+  var json = json_parse(async_load[? "result"]);
+  callback(json.scores);
 }
 
 function _TopBanana_make_auth_payload(game, struct) {

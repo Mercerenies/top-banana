@@ -1,0 +1,3 @@
+[default]
+# cli_colors don't interact well with the output.log file
+cli_colors = false

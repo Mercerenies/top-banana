@@ -1,6 +1,6 @@
 
 use topbanana::server::run_server;
-use topbanana::setup::{generate_initial_user, cleanup_historical_requests};
+use topbanana::setup::{generate_initial_user, cleanup_historical_requests, setup_logger};
 use topbanana::args::CliArgs;
 
 use clap::Parser;
@@ -14,6 +14,7 @@ async fn main() -> Result<(), anyhow::Error> {
   } else if cli_args.cleanup_historical_requests {
     cleanup_historical_requests().await?;
   } else {
+    setup_logger()?;
     run_server().await?;
   }
 

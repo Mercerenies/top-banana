@@ -3,12 +3,17 @@ use crate::db::models::NewDeveloper;
 use crate::db::schema;
 use crate::util::generate_key;
 
+use fern::{Dispatch, InitError, log_file};
+use humantime::format_rfc3339_seconds;
+use log::LevelFilter;
 use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{RunQueryDsl, AsyncConnection, AsyncPgConnection};
 use chrono::{Duration, Utc};
 
 use std::env;
+use std::time::SystemTime;
+use std::io::stdout;
 
 pub async fn generate_initial_user(force: bool) -> anyhow::Result<()> {
   let mut connection = AsyncPgConnection::establish(&env::var("DATABASE_URL")?).await?;
@@ -57,5 +62,28 @@ pub async fn cleanup_historical_requests() -> anyhow::Result<()> {
     .await?;
 
   println!("Successfully deleted {} historical request record(s).", deleted_rows_count);
+  Ok(())
+}
+
+/// Initialize the logger for this process.
+pub fn setup_logger() -> Result<(), InitError> {
+  Dispatch::new()
+    .format(|out, message, record| {
+      out.finish(format_args!(
+        "[{} {} {}] {}",
+        format_rfc3339_seconds(SystemTime::now()),
+        record.level(),
+        record.target(),
+        message
+      ))
+    })
+    .level(LevelFilter::Debug)
+    .chain(log_file("log/output.log")?)
+    .chain(
+      Dispatch::new()
+        .level(LevelFilter::Info)
+        .chain(stdout())
+    )
+    .apply()?;
   Ok(())
 }

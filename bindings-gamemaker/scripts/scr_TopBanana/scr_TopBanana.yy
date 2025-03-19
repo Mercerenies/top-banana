@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_TopBanana",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_TopBanana",
+  "parent":{
+    "name":"TopBanana",
+    "path":"folders/_Packages/TopBanana.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

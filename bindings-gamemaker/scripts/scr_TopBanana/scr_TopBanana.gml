@@ -43,6 +43,29 @@ function _TopBanana_get_scores_callback() {
   callback(json.scores);
 }
 
+function TopBanana_submit_score(game, table_uuid, player_name, player_score, player_score_metadata, callback) {
+  var url = ctrl_TopBanana._server_url + "tables/scores/new"
+  var payload = _TopBanana_make_auth_payload(game, {
+    "table_uuid": table_uuid,
+    "player_name": player_name,
+    "player_score": player_score,
+    "player_score_metadata": player_score_metadata,
+  })
+  var payload_json = json_stringify(payload);
+  var payload_base64 = _TopBanana_base64url(payload_json);
+  var signature = _TopBanana_sha1(game, payload_base64);
+
+  var body = payload_base64 + "." + signature;
+  var request_id = http_request(url, "POST", ctrl_TopBanana._empty_map, body);
+  ctrl_TopBanana._requests_map[? request_id] = method({ "callback": callback }, _TopBanana_submit_score_callback);
+}
+
+function _TopBanana_submit_score_callback() {
+  if (!is_undefined(callback)) {
+    callback();
+  }
+}
+
 function _TopBanana_make_auth_payload(game, struct) {
   struct.game_uuid = game._game_uuid;
   struct.request_uuid = _TopBanana_make_uuidv7();

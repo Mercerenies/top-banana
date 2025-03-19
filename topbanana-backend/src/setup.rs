@@ -6,6 +6,7 @@ use crate::util::generate_key;
 use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{RunQueryDsl, AsyncConnection, AsyncPgConnection};
+use chrono::{Duration, Utc};
 
 use std::env;
 
@@ -41,5 +42,20 @@ pub async fn generate_initial_user(force: bool) -> anyhow::Result<()> {
   println!("  name = {}", new_developer.name);
   println!("  email = {}", new_developer.email);
   println!("  api key = {}", new_developer.api_key.unwrap());
+  Ok(())
+}
+
+pub async fn cleanup_historical_requests() -> anyhow::Result<()> {
+  let mut connection = AsyncPgConnection::establish(&env::var("DATABASE_URL")?).await?;
+
+  println!("Cleaning up historical request records ...");
+
+  let rows_to_delete = schema::historical_requests::table
+    .filter(schema::historical_requests::timestamp.lt(Utc::now() - Duration::days(7)));
+  let deleted_rows_count = diesel::delete(rows_to_delete)
+    .execute(&mut connection)
+    .await?;
+
+  println!("Successfully deleted {} historical request record(s).", deleted_rows_count);
   Ok(())
 }

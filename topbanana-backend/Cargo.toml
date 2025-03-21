@@ -4,6 +4,8 @@ description = "High-score table server for video games"
 authors = ["Silvio Mayolo <mercerenies@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+license-file = "../LICENSE"
 
 [dependencies]
 anyhow = "1.0.97"

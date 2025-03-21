@@ -19,6 +19,7 @@ use chrono::{NaiveDateTime, TimeDelta};
 use chrono::naive::serde::ts_seconds;
 use diesel::prelude::*;
 use diesel_async::{RunQueryDsl, AsyncPgConnection};
+use log::{debug, warn};
 
 use std::str::{from_utf8, Utf8Error, FromStr};
 
@@ -131,6 +132,7 @@ impl<T> GameRequestBody<T> {
 
   pub async fn full_verify_at_time(payload: &GameRequestPayload, db: &mut AsyncPgConnection, now: NaiveDateTime) -> Result<Self, RequestBodyVerifyError>
   where T: DeserializeOwned {
+    debug!("Verifying payload {:?}", payload);
     let body = payload.deserialize::<Self>()?;
     let hasher = body.algo.into_hasher();
     let (secret_key, security_level) = schema::games::table
@@ -141,17 +143,24 @@ impl<T> GameRequestBody<T> {
       .optional()?
       .ok_or(RequestBodyVerifyError::NoSuchGame)?;
 
+    debug!("Found game with uuid {}, security level is {}", body.game_uuid, security_level);
+
     // Verify that the appropriate security level is being used.
     if i32::from(hasher.security_level()) < security_level {
+      warn!("Got a request using security level {} but expected at least {}", i32::from(hasher.security_level()), security_level);
       return Err(RequestBodyVerifyError::SecurityLevelNotAttained);
     }
 
     // Verify the signing key.
-    payload.verify(&secret_key, &*hasher)?;
+    payload.verify(&secret_key, &*hasher).map_err(|err| {
+      warn!("Got bad signing key for game {}", body.game_uuid);
+      err
+    })?;
 
     // Verify the date.
     let time_diff = now - body.request_timestamp;
     if time_diff.abs() > Self::TIME_SKEW {
+      warn!("Got outdated request timestamp for game {} ({:?})", body.game_uuid, body.request_timestamp);
       return Err(RequestBodyVerifyError::BadRequestTimestamp);
     }
 
@@ -159,6 +168,7 @@ impl<T> GameRequestBody<T> {
     let subquery = schema::historical_requests::table
       .filter(schema::historical_requests::request_uuid.eq(&body.request_uuid));
     if diesel::select(diesel::dsl::exists(subquery)).get_result::<bool>(db).await? {
+      warn!("Got repeated request with uuid {}", body.request_uuid);
       return Err(RequestBodyVerifyError::RequestAlreadySeen);
     }
 

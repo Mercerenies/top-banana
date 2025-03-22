@@ -297,7 +297,7 @@ fn normalize_max_scores(maximum_scores_retained: Option<i32>, requesting_user: &
   let Some(n) = maximum_scores_retained else {
     return Some(MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN);
   };
-  if n < 0 || n > MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN {
+  if !(0..=MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN).contains(&n) {
     return Some(MAX_HIGHSCORES_RETAINED_FOR_NON_ADMIN);
   }
   Some(n)

@@ -152,9 +152,8 @@ impl<T> GameRequestBody<T> {
     }
 
     // Verify the signing key.
-    payload.verify(&secret_key, &*hasher).map_err(|err| {
+    payload.verify(&secret_key, &*hasher).inspect_err(|_| {
       warn!("Got bad signing key for game {}", body.game_uuid);
-      err
     })?;
 
     // Verify the date.

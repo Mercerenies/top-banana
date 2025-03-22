@@ -96,6 +96,7 @@ pub struct NewGameDao {
   pub developer_uuid: Uuid,
   pub name: String,
   #[serde(default)]
+  #[schema(example = "10")]
   pub security_level: Option<i32>,
 }
 

@@ -134,6 +134,7 @@ async fn remove_extra_highscore_rows(
     .limit(maximum_scores_retained as i64)
     .select(retained_entries.field(id));
   diesel::delete(highscore_table_entries)
+    .filter(highscore_table_id.eq(table_id))
     .filter(id.ne_all(scores_to_retain))
     .execute(db)
     .await?;

@@ -5,8 +5,9 @@ use crate::util::DataFromStr;
 use super::db;
 use super::error::{ApiSuccessResponse, ApiError};
 use super::api::{get_scores_for_table, ScoresResponse};
+use super::cors::WithWildcardCors;
 
-use rocket::{Route, get, post, routes};
+use rocket::{Route, get, post, options, routes};
 use rocket_db_pools::Connection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -19,6 +20,8 @@ pub fn highscore_table_routes() -> Vec<Route> {
     get_highscore_table_scores,
     get_highscore_table_scores_with_limit,
     post_new_highscore_table_score,
+    preflight_new_highscore_table_score,
+    preflight_highscore_table_scores,
   ]
 }
 
@@ -45,7 +48,7 @@ struct PostHighscoreTableResponse {
 async fn get_highscore_table_scores(
   params: DataFromStr<GameRequestPayload>,
   db: Connection<db::Db>,
-) -> Result<ApiSuccessResponse<ScoresResponse>, ApiError> {
+) -> Result<WithWildcardCors<ApiSuccessResponse<ScoresResponse>>, ApiError> {
   get_highscore_table_scores_impl(params, None, db).await
 }
 
@@ -54,7 +57,7 @@ async fn get_highscore_table_scores_with_limit(
   params: DataFromStr<GameRequestPayload>,
   limit: u32,
   db: Connection<db::Db>,
-) -> Result<ApiSuccessResponse<ScoresResponse>, ApiError> {
+) -> Result<WithWildcardCors<ApiSuccessResponse<ScoresResponse>>, ApiError> {
   get_highscore_table_scores_impl(params, Some(limit), db).await
 }
 
@@ -62,7 +65,7 @@ async fn get_highscore_table_scores_with_limit(
 async fn post_new_highscore_table_score(
   params: DataFromStr<GameRequestPayload>,
   mut db: Connection<db::Db>,
-) -> Result<ApiSuccessResponse<PostHighscoreTableResponse>, ApiError> {
+) -> Result<WithWildcardCors<ApiSuccessResponse<PostHighscoreTableResponse>>, ApiError> {
   let params = GameRequestBody::<PostHighscoreTableParams>::full_verify(&params, &mut db).await?;
   // Note: Filter on game UUID as well. If the user gives a mismatched
   // game UUID and table UUID, we have to reject the request for
@@ -91,14 +94,14 @@ async fn post_new_highscore_table_score(
   }.scope_boxed()).await?;
 
   let resp = PostHighscoreTableResponse { message: "New score added successfully" };
-  Ok(ApiSuccessResponse::new(resp))
+  Ok(WithWildcardCors(ApiSuccessResponse::new(resp)))
 }
 
 async fn get_highscore_table_scores_impl(
   params: DataFromStr<GameRequestPayload>,
   limit: Option<u32>,
   mut db: Connection<db::Db>,
-) -> Result<ApiSuccessResponse<ScoresResponse>, ApiError> {
+) -> Result<WithWildcardCors<ApiSuccessResponse<ScoresResponse>>, ApiError> {
   let params = GameRequestBody::<GetHighscoreTableParams>::full_verify(&params, &mut db).await?;
   // Note: Filter on game UUID as well. If the user gives a mismatched
   // game UUID and table UUID, we have to reject the request for
@@ -111,7 +114,7 @@ async fn get_highscore_table_scores_impl(
     .first::<i32>(&mut db)
     .await?;
   let scores = get_scores_for_table(highscore_table_id, limit, &mut db).await?;
-  Ok(ApiSuccessResponse::new(scores))
+  Ok(WithWildcardCors(ApiSuccessResponse::new(scores)))
 }
 
 async fn remove_extra_highscore_rows(
@@ -139,4 +142,14 @@ async fn remove_extra_highscore_rows(
     .execute(db)
     .await?;
   Ok(())
+}
+
+#[options("/scores/new")]
+async fn preflight_new_highscore_table_score() -> WithWildcardCors<()> {
+  WithWildcardCors(())
+}
+
+#[options("/scores")]
+async fn preflight_highscore_table_scores() -> WithWildcardCors<()> {
+  WithWildcardCors(())
 }

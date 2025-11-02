@@ -2,6 +2,7 @@
 pub mod admin;
 pub mod api;
 pub mod auth;
+pub mod cors;
 pub mod data_access;
 pub mod db;
 pub mod error;

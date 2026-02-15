@@ -70,12 +70,12 @@ async fn post_new_highscore_table_score(
   // Note: Filter on game UUID as well. If the user gives a mismatched
   // game UUID and table UUID, we have to reject the request for
   // security reasons.
-  let (highscore_table_id, maximum_scores_retained) = schema::highscore_tables::table
+  let (highscore_table_id, maximum_scores_retained, unique_entries) = schema::highscore_tables::table
     .inner_join(schema::games::table)
     .filter(schema::highscore_tables::table_uuid.eq(params.body.table_uuid))
     .filter(schema::games::game_uuid.eq(params.game_uuid))
-    .select((schema::highscore_tables::id, schema::highscore_tables::maximum_scores_retained))
-    .first::<(i32, Option<i32>)>(&mut db)
+    .select((schema::highscore_tables::id, schema::highscore_tables::maximum_scores_retained, schema::highscore_tables::unique_entries))
+    .first::<(i32, Option<i32>, bool)>(&mut db)
     .await?;
   let new_entry = models::NewHighscoreTableEntry {
     highscore_table_id,
@@ -89,6 +89,23 @@ async fn post_new_highscore_table_score(
       .values(&new_entry)
       .execute(db)
       .await?;
+    if unique_entries {
+      // Remove all but the highest score by this user.
+      use schema::highscore_table_entries::dsl::*;
+      let top_entry_id = highscore_table_entries
+        .filter(schema::highscore_table_entries::highscore_table_id.eq(highscore_table_id))
+        .filter(schema::highscore_table_entries::player_name.eq(&new_entry.player_name))
+        .order_by(schema::highscore_table_entries::player_score.desc())
+        .select(schema::highscore_table_entries::id)
+        .first::<i32>(db)
+        .await?;
+      diesel::delete(schema::highscore_table_entries::table)
+        .filter(highscore_table_id.eq(highscore_table_id))
+        .filter(player_name.eq(&new_entry.player_name))
+        .filter(id.ne(top_entry_id))
+        .execute(db)
+        .await?;
+    }
     remove_extra_highscore_rows(highscore_table_id, maximum_scores_retained, db).await?;
     Ok(())
   }.scope_boxed()).await?;

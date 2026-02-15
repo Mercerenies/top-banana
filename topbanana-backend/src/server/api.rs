@@ -269,6 +269,7 @@ async fn create_highscore_table(requesting_user: DeveloperUser, params: Json<New
     name: params.name,
     table_uuid: Uuid::new_v4(),
     maximum_scores_retained: normalize_max_scores(params.maximum_scores_retained, &requesting_user),
+    unique_entries: params.unique_entries,
   };
   diesel::insert_into(schema::highscore_tables::table)
     .values(&new_highscore_table)

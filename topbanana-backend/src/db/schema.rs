@@ -49,6 +49,7 @@ diesel::table! {
         name -> Varchar,
         table_uuid -> Uuid,
         maximum_scores_retained -> Nullable<Int4>,
+        unique_entries -> Bool,
     }
 }
 

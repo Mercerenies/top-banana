@@ -126,6 +126,11 @@ pub struct NewHighscoreTableDao {
   /// maximum value of this field.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub maximum_scores_retained: Option<i32>,
+  /// If true, then player names are considered unique in the table.
+  /// If a user submits a new score which is higher than the previous
+  /// one, then only the new one is retained. Default is false.
+  #[serde(default)]
+  pub unique_entries: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

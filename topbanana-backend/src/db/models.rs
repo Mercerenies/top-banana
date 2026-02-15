@@ -61,6 +61,7 @@ pub struct HighscoreTable {
   pub name: String,
   pub table_uuid: Uuid,
   pub maximum_scores_retained: Option<i32>,
+  pub unique_entries: bool,
 }
 
 #[derive(Insertable, Clone)]
@@ -71,6 +72,7 @@ pub struct NewHighscoreTable {
   pub name: String,
   pub table_uuid: Uuid,
   pub maximum_scores_retained: Option<i32>,
+  pub unique_entries: bool,
 }
 
 #[derive(Queryable, Selectable, Associations, Clone)]

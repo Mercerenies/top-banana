@@ -86,7 +86,11 @@ pub fn api_routes() -> Vec<Route> {
 /// Authorizes a developer to perform API calls.
 ///
 /// Takes an API key in the X-Api-Key header and returns a JWT token
-/// if successful.
+/// if successful. The JWT token is valid for one hour after creation
+/// and can be used for any of the user-facing API endpoints.
+///
+/// NOTE: A JWT token is **not** used for game-facing endpoints, only
+/// for the user-facing API.
 #[utoipa::path(
   post,
   path="/api/authorize",

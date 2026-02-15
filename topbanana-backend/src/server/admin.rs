@@ -17,8 +17,11 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NewDeveloperParams {
+  /// The new developer's user-friendly name.
   pub name: String,
+  /// New developer's email address.
   pub email: String,
+  /// A URL for the developer's website, optional.
   #[serde(default)]
   pub url: Option<String>,
 }

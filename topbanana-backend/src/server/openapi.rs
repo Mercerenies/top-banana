@@ -1,5 +1,6 @@
 
 use super::{admin, api};
+use crate::server::data_access;
 
 use utoipa::{Modify, OpenApi, ToSchema, openapi};
 use utoipa::openapi::security::{SecurityScheme, ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityRequirement};
@@ -20,7 +21,10 @@ use uuid::Uuid;
     (name = "highscore-table", description = "Highscore table access and creation"),
   ),
   modifiers(&SecurityAddon),
-  components(),
+  components(
+    schemas(data_access::NewGameDao, data_access::GameResponse, data_access::NewHighscoreTableDao,
+            data_access::HighscoreTableResponse, data_access::DeveloperResponse)
+  ),
 )]
 pub struct ApiDoc;
 
@@ -31,7 +35,11 @@ pub struct SecurityAddon;
 /// a value of type `Uuid`. Note that this type is ONLY used for
 /// OpenAPI documentation, not at runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ToSchema)]
-#[schema(value_type = String, examples("f1aa6898-6294-44c6-a9a4-cd599e7849b8"))]
+#[schema(
+  value_type = String,
+  examples("f1aa6898-6294-44c6-a9a4-cd599e7849b8"),
+  description = "A universally-unique identifier",
+)]
 pub struct OpenApiUuid(pub Uuid);
 
 impl Modify for SecurityAddon {

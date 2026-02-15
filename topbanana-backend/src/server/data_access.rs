@@ -74,6 +74,7 @@ impl<T: DeveloperOwned + Sized> DeveloperOwnedExt for Option<T> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DeveloperResponse {
+  /// The developer's unique identifier.
   #[schema(value_type = OpenApiUuid)]
   pub developer_uuid: Uuid,
   pub name: String,
@@ -94,8 +95,17 @@ pub struct NewGameDao {
   /// UUID.
   #[schema(value_type = OpenApiUuid)]
   pub developer_uuid: Uuid,
+  /// The user-facing name of the new game to create.
   pub name: String,
   #[serde(default)]
+  /// The default value of 10 for security level enables modern
+  /// security features and will reject requests which use outdated
+  /// security protocols.
+  ///
+  /// Games which are written in Game Maker MUST use a security level
+  /// of zero, as Game Maker does not support any modern encryption
+  /// protocols. The server will accept SHA-1 hashes from a game with
+  /// security level zero.
   #[schema(example = "10")]
   pub security_level: Option<i32>,
 }
@@ -112,6 +122,8 @@ pub struct GameResponse {
   /// creation and cannot be recovered after the fact.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub game_secret_key: Option<String>,
+  /// The game's security level, indicating which hashing algorithms
+  /// are permitted.
   pub security_level: i32,
 }
 
@@ -130,6 +142,7 @@ pub struct NewHighscoreTableDao {
   /// If a user submits a new score which is higher than the previous
   /// one, then only the new one is retained. Default is false.
   #[serde(default)]
+  #[schema(example = "false")]
   pub unique_entries: bool,
 }
 

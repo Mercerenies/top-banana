@@ -91,8 +91,7 @@ async fn post_new_highscore_table_score(
       .await?;
     if unique_entries {
       // Remove all but the highest score by this user.
-      use schema::highscore_table_entries::dsl::*;
-      let top_entry_id = highscore_table_entries
+      let top_entry_id = schema::highscore_table_entries::table
         .filter(schema::highscore_table_entries::highscore_table_id.eq(highscore_table_id))
         .filter(schema::highscore_table_entries::player_name.eq(&new_entry.player_name))
         .order_by(schema::highscore_table_entries::player_score.desc())
@@ -101,8 +100,8 @@ async fn post_new_highscore_table_score(
         .await?;
       diesel::delete(schema::highscore_table_entries::table)
         .filter(schema::highscore_table_entries::highscore_table_id.eq(highscore_table_id))
-        .filter(player_name.eq(&new_entry.player_name))
-        .filter(id.ne(top_entry_id))
+        .filter(schema::highscore_table_entries::player_name.eq(&new_entry.player_name))
+        .filter(schema::highscore_table_entries::id.ne(top_entry_id))
         .execute(db)
         .await?;
     }

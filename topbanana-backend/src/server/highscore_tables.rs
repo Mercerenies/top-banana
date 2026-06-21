@@ -100,7 +100,7 @@ async fn post_new_highscore_table_score(
         .first::<i32>(db)
         .await?;
       diesel::delete(schema::highscore_table_entries::table)
-        .filter(highscore_table_id.eq(highscore_table_id))
+        .filter(schema::highscore_table_entries::highscore_table_id.eq(highscore_table_id))
         .filter(player_name.eq(&new_entry.player_name))
         .filter(id.ne(top_entry_id))
         .execute(db)
